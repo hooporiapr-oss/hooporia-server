@@ -30,6 +30,8 @@
 //    SUPABASE_SERVICE_ROLE_KEY
 //    RESEND_API_KEY
 //    MAIL_FROM_HOOPORIA        p.ej. Hooporia <avisos@hooporia.com>
+//    MAIL_REPLY_TO             opcional: a dónde contesta un padrino
+//                              cuando el reto no trae contacto
 //    ADMIN_EMAIL               a dónde llega una solicitud de campaña
 //    STRIPE_SECRET_KEY
 //    STRIPE_WEBHOOK_SECRET     del endpoint de ESTE host, no del otro
@@ -46,6 +48,17 @@ const supabase = createClient(process.env.SUPABASE_URL,
 const MAIL_FROM_HOOPORIA =
   process.env.MAIL_FROM_HOOPORIA || 'Hooporia <onboarding@resend.dev>';
 const MAIL_FROM = MAIL_FROM_HOOPORIA;
+
+/* A dónde contesta un padrino que le da a «responder» cuando el reto
+   no trae contacto del programa. Se quedó sin declarar al traer el
+   aviso desde el servidor compartido, donde sí existía: la línea que
+   lo usa sólo se evalúa cuando NO hay contacto, así que el fallo
+   esperó escondido hasta el primer reto sin coach — y entonces tiró
+   un ReferenceError que contó como «aviso fallido» sin decir más.
+
+   Vacío es una respuesta válida: sin reply_to, responder le escribe
+   al remitente. Mejor eso que mandar a una dirección inventada. */
+const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || '';
 
 /* El webhook necesita el cuerpo crudo para comprobar la firma, así
    que va ANTES del express.json() de abajo. Al revés, el cuerpo
