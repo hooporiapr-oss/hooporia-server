@@ -440,9 +440,22 @@ app.post('/challenge-notices', async (req, res) => {
 // ── La licencia ──────────────────────────────────────────────────
 const LICENCIA_DIAS = 7;
 
+/* Live o prueba, leído del prefijo de la llave. Esto es lo que hace
+   que el admin avise en rojo antes de mandarle una factura de verdad
+   a un programa de verdad, así que equivocarse aquí no es un
+   detalle.
+
+   Cuenta sk_ y rk_: una llave restringida —la que conviene darle a
+   este servidor, que sólo necesita clientes, facturas y líneas de
+   factura— empieza por rk_, no por sk_. Mirando sólo sk_, una rk_
+   live caía en 'sin llave', el admin la enseñaba como modo de
+   prueba y el aviso rojo no salía. La factura habría sido real y la
+   pantalla habría dicho que no se movía dinero. */
 function modoDeStripe() {
   const k = process.env.STRIPE_SECRET_KEY || '';
-  return k.startsWith('sk_live') ? 'live' : (k.startsWith('sk_test') ? 'test' : 'sin llave');
+  if (/^(sk|rk)_live/.test(k)) return 'live';
+  if (/^(sk|rk)_test/.test(k)) return 'test';
+  return 'sin llave';
 }
 
 /* ── La cuenta, aparte de quien la pide ───────────────────────────
@@ -739,6 +752,39 @@ app.post('/team-signup', async (req, res) => {
 
 app.get('/', (req, res) =>
   res.send('Hooporia server — avisos y licencias. Nada de pagos de padrinos.'));
+
+/* ── ¿En qué modo estoy? ──────────────────────────────────────────
+   «¿Estoy en live?» se contestaba abriendo el admin, eligiendo una
+   campaña, abriendo un reto CON promesas y mirando la vista previa
+   de la licencia. Después de limpiar los datos de prueba no hay
+   ninguna de esas cosas, así que justo cuando se cambian las llaves
+   —el momento en que más importa— era cuando no se podía mirar.
+
+   No enseña ninguna llave: sólo el prefijo, que es lo único que
+   hace falta saber, y si cada variable está puesta o no. Nada de
+   esto le sirve a nadie que no la tenga ya. */
+app.get('/estado', (req, res) => {
+  const puesta = (n) => !!(process.env[n] || '').trim();
+  res.json({
+    ok: true,
+    stripe: modoDeStripe(),
+    variables: {
+      STRIPE_SECRET_KEY:        puesta('STRIPE_SECRET_KEY'),
+      STRIPE_WEBHOOK_SECRET:    puesta('STRIPE_WEBHOOK_SECRET'),
+      SUPABASE_URL:             puesta('SUPABASE_URL'),
+      SUPABASE_SERVICE_ROLE_KEY:puesta('SUPABASE_SERVICE_ROLE_KEY'),
+      RESEND_API_KEY:           puesta('RESEND_API_KEY'),
+      MAIL_FROM_HOOPORIA:       puesta('MAIL_FROM_HOOPORIA'),
+      MAIL_REPLY_TO:            puesta('MAIL_REPLY_TO'),
+      ADMIN_EMAIL:              puesta('ADMIN_EMAIL')
+    },
+    /* El remitente sí se enseña entero: va escrito en la cabecera de
+       cada correo que sale, así que no es un secreto, y es justo lo
+       que hubo que adivinar esta mañana cuando los avisos caían en
+       Promociones. */
+    remitente: MAIL_FROM_HOOPORIA
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Hooporia server escuchando en ${PORT}`));
