@@ -336,7 +336,27 @@ eq(M.filas.length, 1, 'se había creado la fila');
 eq(M.borradas.length, 1, 'y se retiró: no queda un evento marcado como cobrado');
 eq(M.borradas[0], M.filas[0].id, 'la fila retirada es la que se creó');
 
-console.log('\n8 · El piso de $5 es el que promete la página\n');
+console.log('\n8 · Un reto SIN contacto del programa sigue avisando\n');
+/* Todas las pruebas de arriba traen contacto, y por eso ninguna
+   tocó la rama que se usa cuando no lo hay. Ahí dentro había un
+   MAIL_REPLY_TO sin declarar —se quedó al traer el aviso desde el
+   servidor compartido— y reventaba con un ReferenceError que se
+   contaba como «aviso fallido» sin más explicación. Costó una
+   corrida entera y hubo que ir a leer los logs de Render.
+
+   Al padrino no le importa que el programa no tenga contacto: su
+   aviso tiene que salir igual. */
+reset();
+M.reporte = reporteCon([PROMESA(1, 'tia1@ejemplo.com', 12)]);
+M.reporte.contact = {};                     // sin nombre y sin correo
+M.calculo = { ...CALCULO_OK, promesas: 1 };
+r = await POST('/challenge-notices', { code: 'HOO-ABC123', challenge_id: RETO });
+
+eq(r.cuerpo.failed, 0, 'sin contacto, el aviso NO falla');
+eq(r.cuerpo.sent, 1, 'sale igual');
+eq(M.correos.length, 1, 'y el correo se pidió de verdad');
+
+console.log('\n9 · El piso de $5 es el que promete la página\n');
 /* prometer.html le dice al padrino, antes de que prometa y en los
    dos idiomas: «si el total sale por debajo de $5, la promesa se
    cierra y no se debe nada». El servidor cortaba en 50 centavos, así
@@ -366,7 +386,7 @@ var cerradas = M.pledges.filter(p => p.invoice_status && p.invoice_status !== 's
 eq(cerradas.map(p => p.invoice_status).sort(), ['no_points','too_small'],
    'una queda en too_small y la otra en no_points, no las dos igual');
 
-console.log('\n9 · El botón del admin sigue sirviendo para lo que falló\n');
+console.log('\n10 · El botón del admin sigue sirviendo para lo que falló\n');
 /* Después del caso 7 el evento quedó sin facturar. El botón tiene
    que poder sacarla, y antes de cobrar tiene que poder enseñarla. */
 reset();
@@ -384,7 +404,7 @@ eq(r.cuerpo.ok, true, 'confirmando sí cobra');
 eq(M.facturas.length, 1, 'una factura');
 eq(r.cuerpo.url, 'https://stripe.test/in_1', 'y devuelve su enlace');
 
-console.log('\n10 · Los estados con nombre llegan con su código HTTP\n');
+console.log('\n11 · Los estados con nombre llegan con su código HTTP\n');
 reset();
 M.calculo = { ...CALCULO_OK, cobrable: false, promesas: 0 };
 r = await POST('/licencia', { challenge_id: RETO, confirmar: true },
