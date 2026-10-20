@@ -222,6 +222,23 @@ async function sendChallengeNotice(o) {
   }
 }
 
+/* ── EL PISO ──────────────────────────────────────────────────────
+   Por debajo de esto la promesa se cierra y no se le pide nada a
+   nadie. El número NO es una preferencia: es lo que prometer.html
+   le dice al padrino, con estas mismas palabras, antes de que
+   prometa —«si el total sale por debajo de $5, la promesa se cierra
+   y no se debe nada»— y lo mismo en inglés.
+
+   Estaba en 50 centavos aquí y en $5 en la página. Un padrino cuya
+   promesa diera $2 leía que no debía nada y recibía un aviso
+   pidiéndole $2. La página manda, porque es lo que esa persona
+   leyó.
+
+   Si este número cambia, cambian a la vez: prometer.html (los dos
+   idiomas) y el filtro de reporte.html. Son cuatro sitios y tienen
+   que decir lo mismo. */
+const PISO_CENTS = 500;
+
 app.post('/challenge-notices', async (req, res) => {
   const { code, challenge_id } = req.body || {};
   if (!code || !challenge_id) {
@@ -280,15 +297,15 @@ app.post('/challenge-notices', async (req, res) => {
       const puntos = Number(p.puntos || 0);
       const cents  = Math.round(total * 100);
 
-      /* Sin puntos no hay promesa que avisar, y por debajo de
-         cincuenta centavos no se le pide a nadie. Las dos filas se
+      /* Sin puntos no hay promesa que avisar, y por debajo del piso
+         no se le pide a nadie. Las dos filas se
          cierran con su cifra guardada —no se dejan en 'open'
          pareciendo pendientes para siempre— pero NO con 'void':
          challenge_report esconde las anuladas, y esconder al nene que
          no jugó es esconder el único problema que un reporte puede
          enseñar. Con 'no_points' y 'too_small' siguen saliendo en el
          reporte con su cero, que es la verdad. */
-      if (cents <= 0 || cents < 50) {
+      if (cents <= 0 || cents < PISO_CENTS) {
         await supabase.from('pledges').update({
           points_at_invoice: puntos,
           team_amount: total,
@@ -350,8 +367,57 @@ app.post('/challenge-notices', async (req, res) => {
       }
     }
 
-    console.log(`Challenge ${challenge_id} notices —`, JSON.stringify(out));
-    return res.json({ ok: true, campaign: teamName, challenge: retoName, ...out });
+    /* ── LA FACTURA SALE CON LOS AVISOS ──────────────────────────
+       La regla que firma el programa es que no se debe nada hasta
+       que los resultados estén dados, y el momento en que se dan es
+       exactamente este: los avisos acabaron de salir. Así que la
+       licencia se factura aquí y no hace falta que nadie se acuerde
+       de pulsar nada.
+
+       Tres cosas que hacen esto seguro:
+
+       · Va al FINAL y en su propio try. Los correos ya salieron; una
+         factura que falla no puede devolver un error que haga pensar
+         que no salieron, ni repetirlos.
+
+       · No factura si algún aviso falló. Al programa se le cobra
+         cuando TODOS sus padrinos tienen su aviso, no antes. El
+         entrenador arregla lo que falló, vuelve a pulsar, y entonces
+         se factura. Cobrar con un padrino sin avisar sería cobrar por
+         un resultado a medio dar.
+
+       · No decide si hay que cobrar. Eso lo dice licencia_calculo:
+         sin promesas contesta que no es cobrable y aquí no se crea
+         ni fila ni factura. Sin promesas, sin cargo — como dice la
+         página. */
+    let licencia = { estado: 'no_intentada' };
+    if (out.failed > 0) {
+      licencia = { estado: 'avisos_pendientes' };
+    } else {
+      try {
+        const r = await facturarLicencia(String(challenge_id));
+        licencia = {
+          estado: r.estado,
+          why: r.why || null,
+          amount_cents: r.vista ? r.vista.amount_cents : null,
+          roster: r.vista ? r.vista.roster : null,
+          program_email: r.vista ? r.vista.program_email : null,
+          stripe_invoice_id: r.stripe_invoice_id || null,
+          url: r.url || null,
+          due_at: r.due_at || null
+        };
+      } catch (e) {
+        /* No debería llegar aquí —facturarLicencia devuelve estados,
+           no lanza— pero si lanzara, los correos siguen enviados y
+           eso es lo que tiene que sobrevivir. */
+        licencia = { estado: 'error', why: String(e && e.message || e) };
+        console.error('challenge-notices licencia:', e);
+      }
+    }
+
+    console.log(`Challenge ${challenge_id} notices —`, JSON.stringify(out),
+                `licencia: ${licencia.estado}`);
+    return res.json({ ok: true, campaign: teamName, challenge: retoName, ...out, licencia });
   } catch (e) {
     console.error('Challenge notices:', e.message);
     return res.status(500).json({ error: e.message });
@@ -366,6 +432,160 @@ function modoDeStripe() {
   return k.startsWith('sk_live') ? 'live' : (k.startsWith('sk_test') ? 'test' : 'sin llave');
 }
 
+/* ── La cuenta, aparte de quien la pide ───────────────────────────
+   Dos sitios facturan la misma licencia: el botón del admin y el
+   final de los avisos. Por eso esto NO lanza ni contesta HTTP:
+   devuelve un estado con nombre, y cada lado decide qué hacer con
+   él. Una excepción aquí tiraría abajo una tanda de correos que ya
+   salió, y eso no se puede retirar. */
+async function calcularLicencia(challenge_id) {
+  const { data: calc, error } =
+    await supabase.rpc('licencia_calculo', { p_challenge: challenge_id });
+  if (error) return { estado: 'error', why: error.message };
+  if (!calc || !calc.ok) {
+    return { estado: 'sin_calculo', why: (calc && calc.why) || 'sin cálculo' };
+  }
+
+  const vista = {
+    modo: modoDeStripe(),
+    challenge: calc.challenge,
+    programa: calc.programa,
+    roster: calc.roster,
+    promesas: calc.promesas,
+    cobrable: calc.cobrable,
+    amount_cents: calc.amount_cents,
+    program_name: calc.program_name,
+    program_email: calc.program_email,
+    ya_facturada: calc.ya_facturada,
+    licencia: calc.licencia,
+    dias: LICENCIA_DIAS
+  };
+
+  if (calc.ya_facturada) return { estado: 'ya_facturada', vista, calc };
+  /* Sin promesas, sin cargo. Es lo que dice la página y lo que firma
+     el programa, así que no puede depender de que nadie se acuerde:
+     se niega aquí, antes de que exista fila o factura. */
+  if (!calc.cobrable)      return { estado: 'sin_promesas', vista, calc };
+  if (!calc.program_email) return { estado: 'sin_correo',   vista, calc };
+  return { estado: 'listo', vista, calc };
+}
+
+async function facturarLicencia(challenge_id) {
+  const paso = await calcularLicencia(challenge_id);
+  if (paso.estado !== 'listo') return paso;
+  const { calc, vista } = paso;
+
+  // ── La fila primero ─────────────────────────────────────────────
+  const { data: fila, error: errFila } = await supabase
+    .from('licencias')
+    .insert({
+      challenge_id,
+      campaign_id: calc.campaign_id,
+      amount_cents: calc.amount_cents,
+      roster: calc.roster,
+      promesas: calc.promesas,
+      program_email: calc.program_email,
+      program_name: calc.program_name,
+      estado: 'open'
+    })
+    .select()
+    .single();
+
+  if (errFila) {
+    /* 23505 = llave duplicada: ya se facturó entre el cálculo y
+       esto. Es exactamente lo que el índice existe para hacer, así
+       que no es un fallo. Importa más que antes: ahora hay dos
+       caminos que pueden llegar aquí a la vez —el botón y los
+       avisos— y el índice es lo único que impide dos facturas por
+       un mismo evento. */
+    if (errFila.code === '23505') return { estado: 'ya_facturada', vista };
+    return { estado: 'error', why: errFila.message, vista };
+  }
+
+  // ── Y ahora Stripe ──────────────────────────────────────────────
+  try {
+    const hay = await stripe.customers.list({ email: calc.program_email, limit: 1 });
+    const cliente = (hay.data && hay.data[0])
+      || await stripe.customers.create({
+           email: calc.program_email,
+           name: calc.program_name || calc.programa || undefined,
+           metadata: { campaign_id: String(calc.campaign_id || '') }
+         });
+
+    const concepto = `Hooporia — licencia del evento: ${calc.challenge}`;
+
+    /* La factura antes que la línea, y la línea atada a ella por su
+       id. Al revés —líneas sueltas y luego la factura— Stripe barre
+       TODAS las líneas pendientes de ese cliente, así que una línea
+       que se quedó de un intento fallido acabaría cobrada dentro de
+       la factura siguiente. */
+    const factura = await stripe.invoices.create({
+      customer: cliente.id,
+      collection_method: 'send_invoice',
+      days_until_due: LICENCIA_DIAS,
+      description: concepto,
+      auto_advance: false,
+      metadata: {
+        producto: 'hooporia',
+        challenge_id: String(challenge_id),
+        licencia_id: String(fila.id)
+      }
+    });
+
+    await stripe.invoiceItems.create({
+      customer: cliente.id,
+      invoice: factura.id,
+      amount: calc.amount_cents,
+      currency: 'usd',
+      description: `${concepto} · plantilla de ${calc.roster}`
+    });
+
+    const firmada = await stripe.invoices.finalizeInvoice(factura.id);
+    const enviada = await stripe.invoices.sendInvoice(firmada.id);
+
+    const { data: puesta } = await supabase
+      .from('licencias')
+      .update({
+        estado: 'enviada',
+        stripe_invoice_id: enviada.id,
+        stripe_hosted_url: enviada.hosted_invoice_url || null,
+        issued_at: new Date().toISOString(),
+        due_at: enviada.due_date ? new Date(enviada.due_date * 1000).toISOString() : null
+      })
+      .eq('id', fila.id)
+      .select()
+      .single();
+
+    console.log(`Licencia ${fila.id} facturada: ${enviada.id} (${modoDeStripe()})`);
+    return {
+      estado: 'enviada', vista,
+      stripe_invoice_id: enviada.id,
+      url: enviada.hosted_invoice_url || null,
+      due_at: puesta ? puesta.due_at : null
+    };
+
+  } catch (eStripe) {
+    /* No llegó a haber factura, así que la fila sobra — y dejarla
+       marcaría el evento como cobrado sin haberlo cobrado, y el
+       índice único impediría reintentarlo. */
+    await supabase.from('licencias').delete().eq('id', fila.id);
+    console.error('Licencia — Stripe falló, fila retirada:', eStripe);
+    return { estado: 'stripe', why: String(eStripe && eStripe.message || eStripe), vista };
+  }
+}
+
+/* Un estado con nombre, un código HTTP. Lo usa /licencia; los avisos
+   no contestan con esto porque un problema de factura no puede
+   convertir unos correos que salieron en una respuesta de error. */
+const HTTP_LICENCIA = {
+  sin_calculo:  [404, 'no_calc'],
+  ya_facturada: [409, 'ya_facturada'],
+  sin_promesas: [422, 'sin_promesas'],
+  sin_correo:   [422, 'sin_correo'],
+  stripe:       [502, 'stripe'],
+  error:        [500, 'error']
+};
+
 app.post('/licencia', async (req, res) => {
   const admin = await requireAdmin(req);
   if (!admin) return res.status(403).json({ error: 'Not authorized' });
@@ -374,145 +594,33 @@ app.post('/licencia', async (req, res) => {
   if (!challenge_id) return res.status(400).json({ error: 'challenge_id is required' });
 
   try {
-    const { data: calc, error: errCalc } =
-      await supabase.rpc('licencia_calculo', { p_challenge: challenge_id });
-    if (errCalc) throw errCalc;
-    if (!calc || !calc.ok) {
-      return res.status(404).json({ error: 'no_calc', why: (calc && calc.why) || 'sin cálculo' });
+    /* Sin confirmar no se factura: se calcula y se enseña. El botón
+       sigue existiendo para la licencia que los avisos no pudieron
+       sacar —Stripe caído, programa sin correo— y para ver la cuenta
+       antes de que salga. */
+    const paso = confirmar === true
+      ? await facturarLicencia(String(challenge_id))
+      : await calcularLicencia(String(challenge_id));
+
+    if (paso.estado === 'listo') {
+      return res.json({ vista_previa: true, ...paso.vista });
     }
-
-    const vista = {
-      modo: modoDeStripe(),
-      challenge: calc.challenge,
-      programa: calc.programa,
-      roster: calc.roster,
-      promesas: calc.promesas,
-      cobrable: calc.cobrable,
-      amount_cents: calc.amount_cents,
-      program_name: calc.program_name,
-      program_email: calc.program_email,
-      ya_facturada: calc.ya_facturada,
-      licencia: calc.licencia,
-      dias: LICENCIA_DIAS
-    };
-
-    // ── Lo que impide facturar, dicho antes de confirmar ──────────
-    if (calc.ya_facturada) {
-      return res.status(409).json({ error: 'ya_facturada', ...vista });
-    }
-    // Sin promesas, sin cargo. Es lo que dice la página y lo que
-    // firma el programa, así que no puede depender de que nadie se
-    // acuerde: aquí se niega.
-    if (!calc.cobrable) {
-      return res.status(422).json({ error: 'sin_promesas', ...vista });
-    }
-    if (!calc.program_email) {
-      return res.status(422).json({ error: 'sin_correo', ...vista });
-    }
-
-    // ── Vista previa ──────────────────────────────────────────────
-    if (confirmar !== true) {
-      return res.json({ vista_previa: true, ...vista });
-    }
-
-    // ── La fila primero ───────────────────────────────────────────
-    const { data: fila, error: errFila } = await supabase
-      .from('licencias')
-      .insert({
-        challenge_id,
-        campaign_id: calc.campaign_id,
-        amount_cents: calc.amount_cents,
-        roster: calc.roster,
-        promesas: calc.promesas,
-        program_email: calc.program_email,
-        program_name: calc.program_name,
-        estado: 'open'
-      })
-      .select()
-      .single();
-
-    if (errFila) {
-      // 23505 = llave duplicada: alguien ya la facturó entre la vista
-      // previa y el clic. Es exactamente lo que el índice existe para
-      // hacer, así que no es un fallo del servidor.
-      if (errFila.code === '23505') {
-        return res.status(409).json({ error: 'ya_facturada', ...vista });
-      }
-      throw errFila;
-    }
-
-    // ── Y ahora Stripe ────────────────────────────────────────────
-    try {
-      let cliente;
-      const hay = await stripe.customers.list({ email: calc.program_email, limit: 1 });
-      cliente = (hay.data && hay.data[0])
-        || await stripe.customers.create({
-             email: calc.program_email,
-             name: calc.program_name || calc.programa || undefined,
-             metadata: { campaign_id: String(calc.campaign_id || '') }
-           });
-
-      const concepto = `Hooporia — licencia del evento: ${calc.challenge}`;
-
-      /* La factura antes que la línea, y la línea atada a ella por
-         su id. Al revés —líneas sueltas y luego la factura— Stripe
-         barre TODAS las líneas pendientes de ese cliente, así que
-         una línea que se quedó de un intento fallido acabaría
-         cobrada dentro de la factura siguiente. */
-      const factura = await stripe.invoices.create({
-        customer: cliente.id,
-        collection_method: 'send_invoice',
-        days_until_due: LICENCIA_DIAS,
-        description: concepto,
-        auto_advance: false,
-        metadata: {
-          producto: 'hooporia',
-          challenge_id: String(challenge_id),
-          licencia_id: String(fila.id)
-        }
-      });
-
-      await stripe.invoiceItems.create({
-        customer: cliente.id,
-        invoice: factura.id,
-        amount: calc.amount_cents,
-        currency: 'usd',
-        description: `${concepto} · plantilla de ${calc.roster}`
-      });
-
-      const firmada = await stripe.invoices.finalizeInvoice(factura.id);
-      const enviada = await stripe.invoices.sendInvoice(firmada.id);
-
-      const { data: puesta } = await supabase
-        .from('licencias')
-        .update({
-          estado: 'enviada',
-          stripe_invoice_id: enviada.id,
-          stripe_hosted_url: enviada.hosted_invoice_url || null,
-          issued_at: new Date().toISOString(),
-          due_at: enviada.due_date ? new Date(enviada.due_date * 1000).toISOString() : null
-        })
-        .eq('id', fila.id)
-        .select()
-        .single();
-
-      console.log(`Licencia ${fila.id} facturada: ${enviada.id} (${modoDeStripe()})`);
+    if (paso.estado === 'enviada') {
       return res.json({
-        ok: true, ...vista,
+        ok: true, ...paso.vista,
         estado: 'enviada',
-        stripe_invoice_id: enviada.id,
-        url: enviada.hosted_invoice_url || null,
-        due_at: puesta ? puesta.due_at : null
+        stripe_invoice_id: paso.stripe_invoice_id,
+        url: paso.url,
+        due_at: paso.due_at
       });
-
-    } catch (eStripe) {
-      /* No llegó a haber factura, así que la fila sobra — y dejarla
-         marcaría el evento como cobrado sin haberlo cobrado, y el
-         índice único impediría reintentarlo. */
-      await supabase.from('licencias').delete().eq('id', fila.id);
-      console.error('Licencia — Stripe falló, fila retirada:', eStripe);
-      return res.status(502).json({ error: 'stripe', why: String(eStripe && eStripe.message || eStripe), ...vista });
     }
+
+    const [codigo, nombre] = HTTP_LICENCIA[paso.estado] || [500, 'error'];
+    return res.status(codigo).json({
+      error: nombre,
+      why: paso.why || null,
+      ...(paso.vista || {})
+    });
 
   } catch (e) {
     console.error('/licencia:', e);
