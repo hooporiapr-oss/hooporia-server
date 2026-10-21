@@ -140,6 +140,22 @@ async function requireAdmin(req) {
 function avisoRetoTextos(lang, o) {
   const money = (n) => '$' + Number(n || 0).toFixed(2);
 
+  /* CÓMO SE PAGA, en palabras del propio programa.
+
+     Si la campaña lo tiene escrito, sale tal cual y el padrino no
+     tiene que preguntarle nada a nadie. Si no, se queda la frase de
+     siempre: que le escriba al entrenador.
+
+     Con doce jugadores eso era una molestia. Con una escuela de
+     cuatrocientos son mil seiscientos padrinos preguntando lo mismo
+     —o, lo que de verdad pasa, dejándolo para luego y no pagando
+     nunca. El segundo en que alguien está más dispuesto a pagar es
+     el que acaba de leer que su ahijado anotó 150 puntos.
+
+     Hooporia no cobra nada: esto es una instrucción que escribió el
+     programa, impresa en el correo que ya salía. */
+  const comoPagar = String(o.payHow || '').trim();
+
   if (lang === 'es') {
     const cuenta = o.cap != null
       ? `Prometiste ${money(o.rate)} por punto, que habrían sido ${money(o.bruto)} — ` +
@@ -151,12 +167,18 @@ function avisoRetoTextos(lang, o) {
         `Hola ${o.name},`,
         `<b>${o.who}</b> anotó <b>${o.points} puntos</b> en ${o.retoName}.`,
         cuenta,
-        o.contactEmail
-          ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
-            `escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}. ` +
-            `Es quien lo recibe. Hooporia no cobra pagos y no te va a escribir otra vez por esto.`
-          : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo. ` +
-            `Hooporia no cobra pagos y no te va a escribir otra vez por esto.`,
+        comoPagar
+          ? `Ese dinero se lo pagas directamente a ${o.teamName}: <b>${comoPagar}</b>` +
+            (o.contactEmail
+              ? ` Si algo no te cuadra, escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}.`
+              : '') +
+            ` Hooporia no cobra pagos y no te va a escribir otra vez por esto.`
+          : (o.contactEmail
+              ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
+                `escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}. ` +
+                `Es quien lo recibe. Hooporia no cobra pagos y no te va a escribir otra vez por esto.`
+              : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo. ` +
+                `Hooporia no cobra pagos y no te va a escribir otra vez por esto.`),
       ],
     };
   }
@@ -171,12 +193,18 @@ function avisoRetoTextos(lang, o) {
       `Hi ${o.name},`,
       `<b>${o.who}</b> scored <b>${o.points} points</b> in ${o.retoName}.`,
       cuenta,
-      o.contactEmail
-        ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
-          `${o.contactName || o.teamName}: ${o.contactEmail}. They are the one who ` +
-          `receives it. Hooporia takes no payments and will not write to you about this again.`
-        : `You pay that directly to ${o.teamName}, who will tell you how. ` +
-          `Hooporia takes no payments and will not write to you about this again.`,
+      comoPagar
+        ? `You pay that directly to ${o.teamName}: <b>${comoPagar}</b>` +
+          (o.contactEmail
+            ? ` If something does not look right, write to ${o.contactName || o.teamName}: ${o.contactEmail}.`
+            : '') +
+          ` Hooporia takes no payments and will not write to you about this again.`
+        : (o.contactEmail
+            ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
+              `${o.contactName || o.teamName}: ${o.contactEmail}. They are the one who ` +
+              `receives it. Hooporia takes no payments and will not write to you about this again.`
+            : `You pay that directly to ${o.teamName}, who will tell you how. ` +
+              `Hooporia takes no payments and will not write to you about this again.`),
     ],
   };
 }
@@ -285,6 +313,30 @@ app.post('/challenge-notices', async (req, res) => {
       return res.status(403).json({ error: (rep && rep.error) || 'not allowed' });
     }
 
+    /* CÓMO SE PAGA. Se lee aparte y no por challenge_report, a
+       propósito: esa función es la puerta del reporte —comprueba el
+       código y que la campaña sea de ese entrenador— y reescribirla
+       entera para añadir una columna es arriesgar lo que ya cierra
+       bien por algo que es un dato suelto.
+
+       Se lee DESPUÉS de que challenge_report dijo ok, así que para
+       cuando se llega aquí ya está comprobado que este reto es de
+       quien dice. Si la consulta falla o la columna está vacía,
+       comoPagar queda vacío y el aviso dice lo de siempre: que le
+       escriba al entrenador. Un dato de más que no llega no puede
+       parar mil seiscientos avisos. */
+    let payHow = null;
+    try {
+      const { data: cam } = await supabase
+        .from('challenges')
+        .select('campaigns(pay_how)')
+        .eq('id', String(challenge_id))
+        .single();
+      payHow = (cam && cam.campaigns && cam.campaigns.pay_how) || null;
+    } catch (e) {
+      console.error('pay_how:', e.message);
+    }
+
     const teamName = rep.campaign || 'the program';
     const retoName = (rep.challenge && rep.challenge.name) || teamName;
 
@@ -362,6 +414,7 @@ app.post('/challenge-notices', async (req, res) => {
           teamName, retoName,
           contactName: contacto.name || null,
           contactEmail: contacto.email || null,
+          payHow,
           rate: Number(p.tarifa),
           pledged: total,
           // Para que el correo no cuente una multiplicación que no se
