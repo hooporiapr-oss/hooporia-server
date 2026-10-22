@@ -16,7 +16,7 @@
    y sin red: es texto, y el texto es lo que cambió.
 
    Y comprueba lo que NO puede pasar: que por meter la frase del
-   programa se caiga la que dice que Hooporia no cobra. Ésa es la
+   programa se caiga la que dice que Cada Punto Cuenta no cobra. Ésa es la
    línea que mantiene cierto lo que promete custodia.html.
 
        node prueba-pago.js
@@ -64,9 +64,9 @@ for (const [l, etq] of [['es','es'], ['en','en']]) {
   si(t.indexOf('ana@lincoln.edu') >= 0,
      etq + ' · el contacto sigue estando, por si algo no cuadra');
   /* La línea que no se puede perder: si el aviso deja de decir que
-     Hooporia no cobra, custodia.html pasa a ser mentira. */
-  si(/(Hooporia no cobra pagos|Hooporia takes no payments)/.test(t),
-     etq + ' · y sigue diciendo que Hooporia no cobra nada');
+     Cada Punto Cuenta no cobra, custodia.html pasa a ser mentira. */
+  si(/(Cada Punto Cuenta no cobra pagos|Cada Punto Cuenta takes no payments)/.test(t),
+     etq + ' · y sigue diciendo que Cada Punto Cuenta no cobra nada');
   si(/(no te va a escribir otra vez|will not write to you about this again)/.test(t),
      etq + ' · y que no habrá un segundo correo');
 }
@@ -80,7 +80,7 @@ for (const [l, etq] of [['es','es'], ['en','en']]) {
        etq + ' · con payHow=' + JSON.stringify(vacio) + ' manda al entrenador');
   }
   const t = texto({ ...BASE, payHow: null }, l);
-  si(/(Hooporia no cobra pagos|Hooporia takes no payments)/.test(t),
+  si(/(Cada Punto Cuenta no cobra pagos|Cada Punto Cuenta takes no payments)/.test(t),
      etq + ' · y la línea de que no cobramos sigue ahí');
 }
 
@@ -112,7 +112,7 @@ console.log('\n5 · Sigue siendo un aviso, no un cobro\n');
             texto({ ...BASE, payHow: 'ATH Móvil a /EscuelaLincoln' }, 'es');
   si(!/pay now|pagar ahora|click to pay|enlace de pago/i.test(t),
      'no aparece ningún enlace de pago');
-  si(!/hooporia\.com\/pag|\/checkout|stripe/i.test(t),
+  si(!/cadapunto\.com\/pag|\/checkout|stripe/i.test(t),
      'y no manda a pagar a ningún sitio nuestro');
 }
 
