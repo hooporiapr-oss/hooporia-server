@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════
    LA LICENCIA DE UN EVENTO — /licencia
 
-   El único cobro que Hooporia hace. No lo paga un padrino: lo paga
+   El único cobro que Cada Punto Cuenta hace. No lo paga un padrino: lo paga
    el programa, una vez por evento, y la llave de Stripe del servidor
    es de PRODUCCIÓN. O sea que un fallo aquí no es una pantalla fea:
    es una factura de verdad a un cliente de verdad, o una que sale
@@ -143,7 +143,7 @@ function llamar(body) {
 }
 
 const CALC_BUENO = {
-  ok: true, challenge_id: 'RETO1', challenge: 'Demo Hooporia', campaign_id: 'CAMP1',
+  ok: true, challenge_id: 'RETO1', challenge: 'Demo Cada Punto Cuenta', campaign_id: 'CAMP1',
   programa: 'Diamantes', roster: 12, promesas: 3, cobrable: true, amount_cents: 4900,
   program_name: 'John', program_email: 'coach@programa.com', ya_facturada: false, licencia: null
 };
@@ -250,8 +250,22 @@ console.log('\n8 · El modo de la llave\n');
 eq(contexto.modoDeStripe(), 'live', 'una llave sk_live se dice live');
 contexto.process.env.STRIPE_SECRET_KEY = 'sk_test_x';
 eq(contexto.modoDeStripe(), 'test', 'una sk_test, test');
+
+/* Las restringidas empiezan por rk_, no por sk_, y son justo las
+   que conviene darle a este servidor. Mirando sólo sk_, una rk_live
+   caía en «sin llave»: el admin la enseñaba como modo de prueba, no
+   salía el aviso rojo, y la factura habría sido real mientras la
+   pantalla decía que no se movía dinero. */
+contexto.process.env.STRIPE_SECRET_KEY = 'rk_live_x';
+eq(contexto.modoDeStripe(), 'live', 'una restringida rk_live también es live');
+contexto.process.env.STRIPE_SECRET_KEY = 'rk_test_x';
+eq(contexto.modoDeStripe(), 'test', 'y una rk_test, test');
+
 contexto.process.env.STRIPE_SECRET_KEY = '';
 eq(contexto.modoDeStripe(), 'sin llave', 'y sin llave se dice, no se adivina');
+contexto.process.env.STRIPE_SECRET_KEY = 'pk_live_x';
+eq(contexto.modoDeStripe(), 'sin llave',
+   'una llave pública no se toma por buena — no empieza por sk_ ni rk_');
 
 console.log('\n' + (fallos === 0
   ? '✓ la licencia sólo se factura cuando debe, y una sola vez'
