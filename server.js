@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════════
 //  EL SERVIDOR DE HOOPORIA
 //
-//  Hooporia tiene su sitio, su admin y su base. Esto es lo que le
+//  Cada Punto Cuenta tiene su sitio, su admin y su base. Esto es lo que le
 //  faltaba: su servidor.
 //
 //  Antes vivía dentro de uno de 3.300 líneas compartido con BOGO y
@@ -24,7 +24,7 @@
 //                              y sin que el modelo conteste nada de
 //                              dinero
 //
-//  Lo que NO hay aquí, y no lo habrá: cobrarle a un padrino. Hooporia
+//  Lo que NO hay aquí, y no lo habrá: cobrarle a un padrino. Cada Punto Cuenta
 //  no procesa pagos de promesas, no verifica pagos y no persigue a
 //  nadie. El dinero va del padrino al programa, directo. El único
 //  cobro que existe es la licencia, y la paga el programa.
@@ -33,7 +33,7 @@
 //    SUPABASE_URL
 //    SUPABASE_SERVICE_ROLE_KEY
 //    RESEND_API_KEY
-//    MAIL_FROM_HOOPORIA        p.ej. Hooporia <avisos@hooporia.com>
+//    MAIL_FROM_HOOPORIA        p.ej. Cada Punto Cuenta <avisos@cadapunto.com>
 //    MAIL_REPLY_TO             opcional: a dónde contesta un padrino
 //                              cuando el reto no trae contacto
 //    ADMIN_EMAIL               a dónde llega una solicitud de campaña
@@ -61,7 +61,7 @@ const supabase = createClient(process.env.SUPABASE_URL,
                               process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const MAIL_FROM_HOOPORIA =
-  process.env.MAIL_FROM_HOOPORIA || 'Hooporia <onboarding@resend.dev>';
+  process.env.MAIL_FROM_HOOPORIA || 'Cada Punto Cuenta <onboarding@resend.dev>';
 const MAIL_FROM = MAIL_FROM_HOOPORIA;
 
 /* A dónde contesta un padrino que le da a «responder» cuando el reto
@@ -110,11 +110,23 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
 app.use(express.json());
 
-/* De dónde se aceptan llamadas. El admin vive en hooporia.com; nada
-   más tiene por qué hablar con esto desde un navegador. */
+/* De dónde se aceptan llamadas. Sólo el sitio; nada más tiene por
+   qué hablar con esto desde un navegador.
+
+   LOS DOS DOMINIOS, y no uno. El sitio pasó a cadapunto.com el 22 de
+   octubre de 2026 y esta lista decía hooporia.com a secas. Una lista
+   así no da un error que se lea: el navegador bloquea la respuesta
+   por su cuenta y la página se queda callada, así que el admin, el
+   reporte y el chat de la ayuda habrían dejado de funcionar todos a
+   la vez sin que el servidor registrara nada raro.
+
+   hooporia.com se queda mientras el dominio viejo siga en pie y
+   redirija. Cuando deje de existir, se quita de aquí — y no antes,
+   que un enlace viejo que alguien guardó sigue llegando por ahí. */
+const DOMINIOS = /^https:\/\/(www\.)?(cadapunto|hooporia)\.com$/;
 app.use((req, res, next) => {
   const o = req.headers.origin || '';
-  if (/^https:\/\/(www\.)?hooporia\.com$/.test(o) || /localhost/.test(o)) {
+  if (DOMINIOS.test(o) || /localhost/.test(o)) {
     res.setHeader('Access-Control-Allow-Origin', o);
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -167,7 +179,7 @@ function avisoRetoTextos(lang, o) {
      nunca. El segundo en que alguien está más dispuesto a pagar es
      el que acaba de leer que su ahijado anotó 150 puntos.
 
-     Hooporia no cobra nada: esto es una instrucción que escribió el
+     Cada Punto Cuenta no cobra nada: esto es una instrucción que escribió el
      programa, impresa en el correo que ya salía. */
   const comoPagar = String(o.payHow || '').trim();
 
@@ -187,13 +199,13 @@ function avisoRetoTextos(lang, o) {
             (o.contactEmail
               ? ` Si algo no te cuadra, escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}.`
               : '') +
-            ` Hooporia no cobra pagos y no te va a escribir otra vez por esto.`
+            ` Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`
           : (o.contactEmail
               ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
                 `escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}. ` +
-                `Es quien lo recibe. Hooporia no cobra pagos y no te va a escribir otra vez por esto.`
+                `Es quien lo recibe. Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`
               : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo. ` +
-                `Hooporia no cobra pagos y no te va a escribir otra vez por esto.`),
+                `Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`),
       ],
     };
   }
@@ -213,13 +225,13 @@ function avisoRetoTextos(lang, o) {
           (o.contactEmail
             ? ` If something does not look right, write to ${o.contactName || o.teamName}: ${o.contactEmail}.`
             : '') +
-          ` Hooporia takes no payments and will not write to you about this again.`
+          ` Cada Punto Cuenta takes no payments and will not write to you about this again.`
         : (o.contactEmail
             ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
               `${o.contactName || o.teamName}: ${o.contactEmail}. They are the one who ` +
-              `receives it. Hooporia takes no payments and will not write to you about this again.`
+              `receives it. Cada Punto Cuenta takes no payments and will not write to you about this again.`
             : `You pay that directly to ${o.teamName}, who will tell you how. ` +
-              `Hooporia takes no payments and will not write to you about this again.`),
+              `Cada Punto Cuenta takes no payments and will not write to you about this again.`),
     ],
   };
 }
@@ -237,7 +249,7 @@ async function sendChallengeNotice(o) {
       ${partes.map(bloque).join(
         '\n      <hr style="border:none;border-top:1px solid #D7E0E8;margin:22px 0">\n      ')}
       <p style="color:#5A6B7C;font-size:.8rem;margin-top:22px">
-        Hooporia · Gostar Digital LLC · Puerto Rico
+        Cada Punto Cuenta · Gostar Digital LLC · Puerto Rico
       </p>
     </div>`;
 
@@ -613,7 +625,7 @@ async function facturarLicencia(challenge_id) {
            metadata: { campaign_id: String(calc.campaign_id || '') }
          });
 
-    const concepto = `Hooporia — licencia del evento: ${calc.challenge}`;
+    const concepto = `Cada Punto Cuenta — licencia del evento: ${calc.challenge}`;
 
     /* La factura antes que la línea, y la línea atada a ella por su
        id. Al revés —líneas sueltas y luego la factura— Stripe barre
@@ -627,7 +639,7 @@ async function facturarLicencia(challenge_id) {
       description: concepto,
       auto_advance: false,
       metadata: {
-        producto: 'hooporia',
+        producto: 'cadapunto',
         challenge_id: String(challenge_id),
         licencia_id: String(fila.id)
       }
@@ -746,7 +758,7 @@ app.post('/team-signup', async (req, res) => {
   const html = `
     <div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#12202E">
       <p style="font-size:.72rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#0C6E8C;margin:0 0 6px">
-        Hooporia
+        Cada Punto Cuenta
       </p>
       <h1 style="font-size:1.4rem;margin:0 0 14px">${team} quiere una campaña</h1>
       <table style="width:100%;border-collapse:collapse;font-size:.95rem">
@@ -826,7 +838,7 @@ app.post('/team-signup', async (req, res) => {
 
 
 app.get('/', (req, res) =>
-  res.send('Hooporia server — avisos y licencias. Nada de pagos de padrinos.'));
+  res.send('Cada Punto Cuenta server — avisos y licencias. Nada de pagos de padrinos.'));
 
 /* ── ¿En qué modo estoy? ──────────────────────────────────────────
    «¿Estoy en live?» se contestaba abriendo el admin, eligiendo una
@@ -841,7 +853,7 @@ app.get('/', (req, res) =>
 // ══════════════════════════════════════════════════════════════════
 //  LA AYUDA DEL ENTRENADOR VIVE AQUÍ DESDE EL 22 DE OCTUBRE DE 2026
 //
-//  Vino del servidor compartido, que es donde se construyó. Hooporia
+//  Vino del servidor compartido, que es donde se construyó. Cada Punto Cuenta
 //  ya tenía todo lo demás aquí —avisos, licencia, webhook, alta de
 //  programa— y le quedaba ESTA sola llamada al otro: ayuda.html
 //  pedía /coach/chat a basketball-money-payments.
@@ -902,10 +914,10 @@ const CHAT_APAGADO = String(process.env.COACH_CHAT_OFF || '') === '1';
 // no pasa por aquí.
 //
 // SIN MARCA, A PROPÓSITO. Este endpoint lo comparten los dos
-// productos: el entrenador de baloncesto entra por Hooporia y el
+// productos: el entrenador de baloncesto entra por Cada Punto Cuenta y el
 // programa de escuela por Cada Punto, con el mismo código y la misma
 // base. Antes esto decía "Cada Punto" seis veces, así que a un
-// entrenador de Hooporia la ayuda le contestaba con el nombre del
+// entrenador de Cada Punto Cuenta la ayuda le contestaba con el nombre del
 // otro producto — y la ayuda es justo donde va el que ya está
 // confundido.
 //
@@ -1334,4 +1346,4 @@ app.get('/estado', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Hooporia server escuchando en ${PORT}`));
+app.listen(PORT, () => console.log(`Cada Punto Cuenta server escuchando en ${PORT}`));
