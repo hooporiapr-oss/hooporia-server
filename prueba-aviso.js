@@ -17,7 +17,7 @@
    antes de mandar, los estados, ni el HTML. Eso es lo que se prueba.
 
    Hace falta el Postgres local con el banco y las funciones puestas:
-       (ver prueba-reporte-sql.sql en el repo de Hooporia)
+       (ver prueba-reporte-sql.sql en el repo de Cada Punto Cuenta)
    y se le pasa el socket y el puerto por variables:
        PGT=/tmp/pgt PGPORT=5433 PGUSER=claude PGDB=prueba \
          node prueba-aviso.js
@@ -103,7 +103,7 @@ async function fetchFalso(url, opciones) {
 let manejador = null;
 const contexto = {
   console: { log(){}, error(){} },
-  process: { env: { RESEND_API_KEY: 'falsa', MAIL_FROM_HOOPORIA: 'Hooporia <aviso@hooporia.com>' } },
+  process: { env: { RESEND_API_KEY: 'falsa', MAIL_FROM_HOOPORIA: 'Cada Punto Cuenta <aviso@cadapunto.com>' } },
   MAIL_REPLY_TO: '',
   supabase: supabaseFalso,
   fetch: fetchFalso,
@@ -243,7 +243,7 @@ function reiniciar() {
   const todos = correos.map(c => c.html + ' ' + c.text + ' ' + c.subject).join(' ');
 
   /* Buscar la PALABRA 'payment' aquí fue un falso positivo, y de los
-     instructivos: lo que la disparaba era «Hooporia takes no
+     instructivos: lo que la disparaba era «Cada Punto Cuenta takes no
      payments», la frase que promete justo lo contrario de lo que la
      prueba temía. Lo que no puede haber no es la palabra, es un
      enlace. Así que se busca el enlace. */
@@ -252,7 +252,7 @@ function reiniciar() {
   eq(/deducib|deductible|tax/i.test(todos), false, 'ni una palabra de impuestos');
   eq(/plataforma|platform fee|10%/i.test(todos), false, 'ningún cargo de plataforma');
   eq(/Cada Punto/.test(todos), false, 'y no firma como el otro producto');
-  eq(correos.every(c => /Hooporia/.test(c.from)), true, 'el remitente dice Hooporia');
+  eq(correos.every(c => /Cada Punto Cuenta/.test(c.from)), true, 'el remitente dice Cada Punto Cuenta');
   eq(correos.every(c => /no cobra pagos|takes no payments/.test(c.html)), true,
      'cada uno dice que no cobramos pagos');
   eq(correos.every(c => /no te va a escribir otra vez|will not write to you about this again/.test(c.html)), true,
