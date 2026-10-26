@@ -120,8 +120,26 @@ app.use(express.json());
 
    hooporia.com se queda mientras el dominio viejo siga en pie y
    redirija. Cuando deje de existir, se quita de aquí — y no antes,
-   que un enlace viejo que alguien guardó sigue llegando por ahí. */
-const DOMINIOS = /^https:\/\/(www\.)?(cadapunto|hooporia)\.com$/;
+   que un enlace viejo que alguien guardó sigue llegando por ahí.
+
+   Y OTRA VEZ LO MISMO, el 25 de octubre de 2026: el sitio pasó a
+   cognitivo.digital. Tres páginas llaman aquí desde el navegador
+   —admin.html, equipo.html y reporte.html— y servidas desde el
+   dominio nuevo eran un origen que esta lista no conocía. Habrían
+   dejado de funcionar las tres a la vez, calladas, igual que la vez
+   anterior: el navegador bloquea la respuesta por su cuenta y aquí
+   no queda ni un registro de que algo falló.
+
+   Que haya pasado dos veces dice dónde está el fallo de verdad: la
+   lista no se mueve con el dominio porque vive en otro repositorio.
+   Mientras siga así, mudar el sitio es DOS cambios, y éste es el que
+   se olvida. Por eso cognitivo.digital va primero en la lista: es el
+   de hoy, y los dos de abajo son herencia.
+
+   OJO con la terminación: cognitivo es .digital, no .com, así que no
+   entra en el paréntesis de los otros dos. Metiéndolo ahí aceptaría
+   cognitivo.com —que no es nuestro— y rechazaría el real. */
+const DOMINIOS = /^https:\/\/(www\.)?(cognitivo\.digital|(cadapunto|hooporia)\.com)$/;
 app.use((req, res, next) => {
   const o = req.headers.origin || '';
   if (DOMINIOS.test(o) || /localhost/.test(o)) {
@@ -747,6 +765,43 @@ app.post('/team-signup', async (req, res) => {
     return res.status(400).json({ error: 'team and email are required' });
   }
 
+  /* ── LA SOLICITUD SE GUARDA ANTES DE AVISAR ──────────────────────
+     Hasta el 26 de octubre de 2026 esto no guardaba nada: mandaba un
+     correo y se acababa ahí. Un correo que rebota, que cae en
+     Promociones o que alguien borra se llevaba la solicitud entera,
+     y no había dónde ir a buscarla.
+
+     El orden importa y es el que está: primero la fila, después el
+     aviso. Así el aviso vuelve a ser lo que decía ser —un extra— y
+     el fallo de Resend deja de costar una campaña.
+
+     Y arregla dos frases que eran mentira. El correo promete que «la
+     petición ya está en la cola»: ahora hay cola. Y el catch de
+     abajo contesta 'request saved': ahora está guardada de verdad. */
+  let guardada = false;
+  try {
+    const { error } = await supabase.from('solicitudes').insert({
+      equipo: String(team).slice(0, 200),
+      programa: program ? String(program).slice(0, 200) : null,
+      coach: coach ? String(coach).slice(0, 200) : null,
+      email: String(email).slice(0, 320),
+      telefono: phone ? String(phone).slice(0, 60) : null,
+      licencia_ok: !!(license && license.accepted),
+      licencia_por: (license && license.by) ? String(license.by).slice(0, 200) : null,
+      licencia_el: (license && license.at) ? String(license.at).slice(0, 80) : null,
+      licencia_texto: (license && license.terms)
+        ? String(license.terms).replace(/<[^>]*>/g, '').slice(0, 4000) : null
+    });
+    if (error) throw new Error(error.message);
+    guardada = true;
+  } catch (e) {
+    /* QUE NO SE PUEDA GUARDAR SÍ ES UN FALLO, y se dice. Es lo
+       contrario del aviso: sin fila no queda nada, y contestar ok
+       dejaría al entrenador creyendo que se inscribió. */
+    console.error('Team signup save:', e.message);
+    return res.status(500).json({ ok: false, error: 'no-se-pudo-guardar' });
+  }
+
   const to = process.env.ADMIN_EMAIL || 'gostardigital@gmail.com';
 
   const row = (k, v) =>
@@ -826,11 +881,16 @@ app.post('/team-signup', async (req, res) => {
       throw new Error(`Resend refused the notice (${r.status}): ${detail.slice(0, 200)}`);
     }
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, guardada: guardada });
   } catch (e) {
-    // El aviso es un extra: que falle no puede romper la inscripción.
+    /* El aviso es un extra: que falle no puede romper la inscripción.
+       Y ahora esta frase es verdad — la fila quedó escrita arriba
+       antes de intentar el correo. Se contesta ok:true a propósito:
+       para el entrenador la inscripción SÍ salió bien, y que nosotros
+       no nos hayamos enterado por correo no es problema suyo. La
+       solicitud está en el admin igual. */
     console.error('Team signup notice:', e.message);
-    return res.json({ ok: false, note: 'request saved, notice failed' });
+    return res.json({ ok: true, guardada: guardada, aviso: 'no-salio-el-correo' });
   }
 });
 
