@@ -126,20 +126,25 @@ app.use(express.json());
    cognitivo.digital. Tres páginas llaman aquí desde el navegador
    —admin.html, equipo.html y reporte.html— y servidas desde el
    dominio nuevo eran un origen que esta lista no conocía. Habrían
-   dejado de funcionar las tres a la vez, calladas, igual que la vez
-   anterior: el navegador bloquea la respuesta por su cuenta y aquí
-   no queda ni un registro de que algo falló.
+   dejado de funcionar las tres a la vez, calladas: el navegador
+   bloquea la respuesta por su cuenta y aquí no queda ni un registro
+   de que algo falló.
 
-   Que haya pasado dos veces dice dónde está el fallo de verdad: la
-   lista no se mueve con el dominio porque vive en otro repositorio.
-   Mientras siga así, mudar el sitio es DOS cambios, y éste es el que
-   se olvida. Por eso cognitivo.digital va primero en la lista: es el
-   de hoy, y los dos de abajo son herencia.
+   Y SE DESHIZO AL DÍA SIGUIENTE. cognitivo.digital se retiró el 26
+   de octubre de 2026 y el sitio volvió a cadapunto.com, así que ese
+   origen sale de la lista: no queda ninguna página servida desde
+   ahí, y un dominio que ya no es nuestro en una lista de orígenes
+   permitidos es una puerta abierta a una casa en la que no vivimos.
+   Si alguien lo registrara, sus páginas podrían llamar aquí.
 
-   OJO con la terminación: cognitivo es .digital, no .com, así que no
-   entra en el paréntesis de los otros dos. Metiéndolo ahí aceptaría
-   cognitivo.com —que no es nuestro— y rechazaría el real. */
-const DOMINIOS = /^https:\/\/(www\.)?(cognitivo\.digital|(cadapunto|hooporia)\.com)$/;
+   Que haya ido y vuelto en dos días dice dónde está el fallo de
+   verdad: la lista no se mueve con el dominio porque vive en otro
+   repositorio. Mientras siga así, mudar el sitio son DOS cambios, y
+   éste es el que se olvida.
+
+   hooporia.com se queda mientras el dominio viejo siga en pie y
+   redirija — un enlace viejo que alguien guardó llega por ahí. */
+const DOMINIOS = /^https:\/\/(www\.)?(cadapunto|hooporia)\.com$/;
 app.use((req, res, next) => {
   const o = req.headers.origin || '';
   if (DOMINIOS.test(o) || /localhost/.test(o)) {
