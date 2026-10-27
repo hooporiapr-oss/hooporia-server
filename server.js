@@ -720,6 +720,365 @@ const HTTP_LICENCIA = {
   error:        [500, 'error']
 };
 
+/* ════════════════════════════════════════════════════════════════
+   EL COBRO DE UN JUEGO DE MARCADOR
+
+   Lo mismo que /challenge-notices, apuntado a `game_pledges` en vez
+   de a `pledges`. Un juego de baloncesto de verdad, su marcador
+   final, y un aviso por padrino.
+
+   AL PADRINO NO SE LE COBRA NADA. `game_pledges` todavía arrastra
+   `platform_amount` y `stripe_session` de cuando la plataforma se
+   llevaba un veinte por ciento y procesaba el pago; ese modelo se
+   retiró y la custodia dice lo contrario con todas las letras. Aquí
+   platform_amount se escribe a cero y stripe_session no se toca.
+
+   Lo que se factura es la licencia, y se le factura al PROGRAMA.
+   ════════════════════════════════════════════════════════════════ */
+
+function avisoJuegoTextos(lang, o) {
+  const money = (n) => '$' + Number(n || 0).toFixed(2);
+  const comoPagar = String(o.payHow || '').trim();
+
+  /* El marcador entero, no sólo los puntos del equipo: un padrino que
+     ve «68–61» sabe de qué juego le hablan. Y se nombra al rival
+     porque un equipo juega tres veces en un fin de semana. */
+  const marcador = o.oppPoints != null
+    ? `${o.points}–${o.oppPoints}` : String(o.points);
+
+  if (lang === 'es') {
+    const cuenta = o.cap != null
+      ? `Prometiste ${money(o.rate)} por punto, que habrían sido ${money(o.bruto)} — ` +
+        `pero pusiste un tope de ${money(o.cap)}, así que tu promesa es de <b>${money(o.pledged)}</b>.`
+      : `Prometiste ${money(o.rate)} por punto, así que tu promesa es de <b>${money(o.pledged)}</b>.`;
+    return {
+      subject: `${o.teamName} anotó ${o.points} — tu promesa`,
+      lines: [
+        `Hola ${o.name},`,
+        `<b>${o.teamName}</b> anotó <b>${o.points} puntos</b> ${o.label} (${marcador}).`,
+        cuenta,
+        comoPagar
+          ? `Ese dinero se lo pagas directamente a ${o.teamName}: <b>${comoPagar}</b>` +
+            (o.contactEmail
+              ? ` Si algo no te cuadra, escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}.`
+              : '') +
+            ` Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`
+          : (o.contactEmail
+              ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
+                `escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}. ` +
+                `Es quien lo recibe. Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`
+              : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo. ` +
+                `Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`),
+      ],
+    };
+  }
+
+  const cuenta = o.cap != null
+    ? `You pledged ${money(o.rate)} a point, which would have come to ${money(o.bruto)} — ` +
+      `but you set a ${money(o.cap)} cap, so your pledge is <b>${money(o.pledged)}</b>.`
+    : `You pledged ${money(o.rate)} a point, so your pledge comes to <b>${money(o.pledged)}</b>.`;
+  return {
+    subject: `${o.teamName} scored ${o.points} — your pledge`,
+    lines: [
+      `Hi ${o.name},`,
+      `<b>${o.teamName}</b> scored <b>${o.points} points</b> ${o.label} (${marcador}).`,
+      cuenta,
+      comoPagar
+        ? `You pay that directly to ${o.teamName}: <b>${comoPagar}</b>` +
+          (o.contactEmail
+            ? ` If something does not look right, write to ${o.contactName || o.teamName}: ${o.contactEmail}.`
+            : '') +
+          ` Cada Punto Cuenta does not take payments and will not write to you about this again.`
+        : (o.contactEmail
+            ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
+              `${o.contactName || o.teamName}: ${o.contactEmail}. They are the ones who receive it. ` +
+              `Cada Punto Cuenta does not take payments and will not write to you about this again.`
+            : `You pay that directly to ${o.teamName}. They will tell you how. ` +
+              `Cada Punto Cuenta does not take payments and will not write to you about this again.`),
+    ],
+  };
+}
+
+/* `game_pledges` no guarda el idioma del padrino como lo hace
+   `pledges`, así que salen los dos. Mejor un correo con las dos
+   mitades que uno en el idioma equivocado. */
+async function sendGameNotice(o) {
+  const partes = [avisoJuegoTextos('es', o), avisoJuegoTextos('en', o)];
+  const bloque = (t) => t.lines.map(l => `<p>${l}</p>`).join('\n      ');
+
+  const html = `
+    <div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#12202E;font-size:15px;line-height:1.6">
+      ${partes.map(bloque).join(
+        '\n      <hr style="border:none;border-top:1px solid #D7E0E8;margin:22px 0">\n      ')}
+      <p style="color:#5A6B7C;font-size:.8rem;margin-top:22px">
+        Cada Punto Cuenta · Gostar Digital LLC · Puerto Rico
+      </p>
+    </div>`;
+
+  const text = partes
+    .map(t => t.lines.map(l => l.replace(/<[^>]+>/g, '')).join('\n'))
+    .join('\n\n---\n\n') + '\n';
+
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
+
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: MAIL_FROM_HOOPORIA,
+      to: [o.to],
+      ...(o.contactEmail ? { reply_to: o.contactEmail }
+                         : (MAIL_REPLY_TO ? { reply_to: MAIL_REPLY_TO } : {})),
+      subject: partes[0].subject,
+      html, text,
+    }),
+  });
+
+  if (!r.ok) throw new Error(`(${r.status}) ${await r.text()}`);
+  return r.json();
+}
+
+/* La licencia de UN juego. Mismo orden que facturarLicencia: la fila
+   primero, porque el índice único es lo único que impide dos facturas
+   por el mismo juego cuando el botón y el barrido coinciden; y si
+   Stripe falla, la fila se retira para poder reintentarlo. */
+async function facturarLicenciaJuego(game_id, rep, torneo, juego_no) {
+  if (!rep.cobrable)      return { estado: 'sin_promesas' };
+  if (rep.ya_facturada)   return { estado: 'ya_facturada', licencia: rep.licencia };
+  if (!rep.program_email) return { estado: 'sin_correo' };
+
+  const { data: fila, error: errFila } = await supabase
+    .from('licencias_juego')
+    .insert({
+      game_id,
+      campaign_id: rep.campaign_id,
+      torneo: torneo || null,
+      juego_no: juego_no || null,
+      amount_cents: rep.amount_cents,
+      promesas: rep.promesas,
+      recaudado: rep.recaudado,
+      estado: 'open'
+    })
+    .select()
+    .single();
+
+  if (errFila) {
+    if (errFila.code === '23505') return { estado: 'ya_facturada' };
+    return { estado: 'error', why: errFila.message };
+  }
+
+  try {
+    const hay = await stripe.customers.list({ email: rep.program_email, limit: 1 });
+    const cliente = (hay.data && hay.data[0])
+      || await stripe.customers.create({
+           email: rep.program_email,
+           name: rep.program_name || rep.programa || undefined,
+           metadata: { campaign_id: String(rep.campaign_id || '') }
+         });
+
+    const concepto = `Cada Punto Cuenta — licencia del juego: ${rep.programa} ${rep.juego}`;
+
+    const factura = await stripe.invoices.create({
+      customer: cliente.id,
+      collection_method: 'send_invoice',
+      days_until_due: LICENCIA_DIAS,
+      description: concepto,
+      auto_advance: false,
+      metadata: {
+        producto: 'cadapunto',
+        game_id: String(game_id),
+        torneo: String(torneo || ''),
+        licencia_id: String(fila.id)
+      }
+    });
+
+    await stripe.invoiceItems.create({
+      customer: cliente.id,
+      invoice: factura.id,
+      amount: rep.amount_cents,
+      currency: 'usd',
+      description: `${concepto} · ${rep.promesas} promesa${rep.promesas === 1 ? '' : 's'}`
+    });
+
+    const firmada = await stripe.invoices.finalizeInvoice(factura.id);
+    const enviada = await stripe.invoices.sendInvoice(firmada.id);
+
+    await supabase.from('licencias_juego').update({
+      estado: 'enviada',
+      stripe_invoice_id: enviada.id,
+      stripe_hosted_url: enviada.hosted_invoice_url || null,
+      enviada_el: new Date().toISOString(),
+      due_at: enviada.due_date ? new Date(enviada.due_date * 1000).toISOString() : null
+    }).eq('id', fila.id);
+
+    console.log(`Licencia de juego ${fila.id} facturada: ${enviada.id} (${modoDeStripe()})`);
+    return {
+      estado: 'enviada',
+      amount_cents: rep.amount_cents,
+      promesas: rep.promesas,
+      program_email: rep.program_email,
+      stripe_invoice_id: enviada.id,
+      url: enviada.hosted_invoice_url || null
+    };
+
+  } catch (eStripe) {
+    await supabase.from('licencias_juego').delete().eq('id', fila.id);
+    console.error('Licencia de juego — Stripe falló, fila retirada:', eStripe);
+    return { estado: 'stripe', why: String(eStripe && eStripe.message || eStripe) };
+  }
+}
+
+/* Un juego: avisos y factura. Devuelve la cuenta de lo que pasó para
+   que el barrido de un torneo pueda juntarlas sin repetir nada. */
+async function cobrarJuego(code, game_id, torneo, juego_no) {
+  const { data: rep, error } = await supabase.rpc('juego_reporte', {
+    p_code: String(code), p_game: String(game_id),
+  });
+
+  if (error) return { ok: false, error: 'report failed', why: error.message };
+  if (!rep || rep.ok !== true) return { ok: false, error: (rep && rep.error) || 'not allowed' };
+
+  const out = { ok: true, game_id, juego: rep.juego, programa: rep.programa,
+                sent: 0, skipped: 0, zero: 0, failed: 0, errors: [] };
+
+  const puntos   = Number(rep.puntos || 0);
+  const piso     = Number(rep.piso_centavos || 500);
+  const teamName = rep.programa || 'the program';
+
+  for (const p of rep.pledges || []) {
+    /* Lista blanca, igual que en los retos: un estado nuevo que no
+       esté aquí deja al padrino sin aviso y se ve en «saltadas»; al
+       revés, acabaría escribiéndole dos veces y eso no se retira. */
+    const SIN_AVISAR = [null, undefined, '', 'open', 'pending'];
+    if (SIN_AVISAR.indexOf(p.estado) === -1) { out.skipped++; continue; }
+
+    const total = Number(p.total || 0);
+    const cents = Math.round(total * 100);
+
+    /* Sin puntos no hay promesa que avisar, y por debajo del piso no
+       se le pide a nadie. Se cierran con su cifra guardada en vez de
+       quedarse abiertas para siempre, pero NO con 'void': siguen
+       saliendo en el reporte con su cero, que es la verdad. */
+    if (cents <= 0 || cents < piso) {
+      await supabase.from('game_pledges').update({
+        points: puntos, team_amount: total, amount: total, platform_amount: 0,
+        invoice_status: cents <= 0 ? 'no_points' : 'too_small',
+      }).eq('id', p.id);
+      out.zero++;
+      continue;
+    }
+
+    /* La cuenta se guarda ANTES de mandar: si el correo falla, el
+       número ya está bueno y el aviso se puede repetir. amount va
+       igual que team_amount y platform_amount a cero — al padrino no
+       se le cobra recargo ninguno. */
+    await supabase.from('game_pledges').update({
+      points: puntos, team_amount: total, amount: total, platform_amount: 0,
+    }).eq('id', p.id);
+
+    const bruto = +(Number(p.rate) * puntos).toFixed(2);
+
+    try {
+      await sendGameNotice({
+        to: p.email,
+        name: p.nombre,
+        teamName,
+        label: rep.juego,
+        points: puntos,
+        oppPoints: rep.opp_points != null ? rep.opp_points : null,
+        payHow: rep.pay_how,
+        contactName: rep.program_name || null,
+        contactEmail: rep.program_email || null,
+        rate: Number(p.rate),
+        pledged: total,
+        // El tope sólo se menciona si de verdad mordió.
+        cap:   p.cap != null && total < bruto ? Number(p.cap) : null,
+        bruto: p.cap != null && total < bruto ? bruto : null,
+      });
+
+      await supabase.from('game_pledges').update({
+        invoice_status: 'sent',
+        invoiced_at: new Date().toISOString(),
+      }).eq('id', p.id);
+      out.sent++;
+    } catch (e) {
+      out.failed++;
+      out.errors.push(`${p.email}: ${e.message}`);
+    }
+  }
+
+  /* LA FACTURA SALE CON LOS AVISOS, y las tres reglas de siempre:
+     va al final y en su propio try, no sale si algún aviso falló
+     —cobrar con un padrino sin avisar es cobrar por un resultado a
+     medio dar—, y no decide ella si hay que cobrar: eso lo dijo
+     licencia_juego_calculo. */
+  if (out.failed > 0) {
+    out.licencia = { estado: 'avisos_pendientes' };
+  } else {
+    try {
+      out.licencia = await facturarLicenciaJuego(game_id, rep, torneo, juego_no);
+    } catch (e) {
+      console.error('game-notices licencia:', e);
+      out.licencia = { estado: 'error', why: String(e && e.message || e) };
+    }
+  }
+
+  return out;
+}
+
+app.post('/game-notices', async (req, res) => {
+  const { code, game_id, torneo, juego_no } = req.body || {};
+  if (!code || !game_id) {
+    return res.status(400).json({ error: 'code and game_id are required' });
+  }
+  try {
+    const r = await cobrarJuego(code, game_id, torneo, juego_no);
+    if (!r.ok) return res.status(r.error === 'report failed' ? 500 : 403).json(r);
+    return res.json(r);
+  } catch (e) {
+    console.error('game-notices:', e);
+    return res.status(500).json({ error: 'failed', why: String(e && e.message || e) });
+  }
+});
+
+/* El barrido de un torneo es un bucle sobre lo de arriba y nada más:
+   una segunda implementación del cobro acabaría discrepando con la
+   primera el día que una de las dos cambie, y discrepar en dinero se
+   descubre por un entrenador y no por una prueba. */
+app.post('/tournament-notices', async (req, res) => {
+  const { code, torneo } = req.body || {};
+  if (!code || !torneo) {
+    return res.status(400).json({ error: 'code and torneo are required' });
+  }
+
+  try {
+    const { data: juegos, error } = await supabase.rpc('torneo_juegos_cobrables',
+                                                      { p_torneo: String(torneo) });
+    if (error) return res.status(500).json({ error: 'list failed', why: error.message });
+
+    const out = { torneo, juegos: [], sent: 0, failed: 0, facturados: 0 };
+
+    /* De uno en uno y no en paralelo: son correos y facturas de
+       Stripe, y veinte a la vez es como se tropieza con un límite de
+       tasa a mitad de un torneo. */
+    for (const j of juegos || []) {
+      const r = await cobrarJuego(code, j.game_id, torneo, j.juego_no);
+      out.juegos.push({ juego_no: j.juego_no, ...r });
+      out.sent   += r.sent   || 0;
+      out.failed += r.failed || 0;
+      if (r.licencia && r.licencia.estado === 'enviada') out.facturados++;
+    }
+
+    return res.json(out);
+  } catch (e) {
+    console.error('tournament-notices:', e);
+    return res.status(500).json({ error: 'failed', why: String(e && e.message || e) });
+  }
+});
+
 app.post('/licencia', async (req, res) => {
   const admin = await requireAdmin(req);
   if (!admin) return res.status(403).json({ error: 'Not authorized' });
