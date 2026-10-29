@@ -762,13 +762,16 @@ function avisoJuegoTextos(lang, o) {
             (o.contactEmail
               ? ` Si algo no te cuadra, escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}.`
               : '') +
-            ` Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`
+            ` Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto, ` +
+              `salvo que el marcador se corrija.`
           : (o.contactEmail
               ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
                 `escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}. ` +
-                `Es quien lo recibe. Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`
+                `Es quien lo recibe. Cada Punto Cuenta no cobra pagos y no te va a escribir ` +
+                `otra vez por esto, salvo que el marcador se corrija.`
               : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo. ` +
-                `Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`),
+                `Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto, ` +
+                `salvo que el marcador se corrija.`),
       ],
     };
   }
@@ -788,13 +791,16 @@ function avisoJuegoTextos(lang, o) {
           (o.contactEmail
             ? ` If something does not look right, write to ${o.contactName || o.teamName}: ${o.contactEmail}.`
             : '') +
-          ` Cada Punto Cuenta does not take payments and will not write to you about this again.`
+          ` Cada Punto Cuenta does not take payments and will not write to you about this ` +
+            `again, unless the final score is corrected.`
         : (o.contactEmail
             ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
               `${o.contactName || o.teamName}: ${o.contactEmail}. They are the ones who receive it. ` +
-              `Cada Punto Cuenta does not take payments and will not write to you about this again.`
+              `Cada Punto Cuenta does not take payments and will not write to you about ` +
+              `this again, unless the final score is corrected.`
             : `You pay that directly to ${o.teamName}. They will tell you how. ` +
-              `Cada Punto Cuenta does not take payments and will not write to you about this again.`),
+              `Cada Punto Cuenta does not take payments and will not write to you about ` +
+              `this again, unless the final score is corrected.`),
     ],
   };
 }
@@ -802,8 +808,117 @@ function avisoJuegoTextos(lang, o) {
 /* `game_pledges` no guarda el idioma del padrino como lo hace
    `pledges`, así que salen los dos. Mejor un correo con las dos
    mitades que uno en el idioma equivocado. */
-async function sendGameNotice(o) {
-  const partes = [avisoJuegoTextos('es', o), avisoJuegoTextos('en', o)];
+/* ── La corrección ────────────────────────────────────────────────
+
+   El anotador puede corregir un marcador, y puede borrarlo. Cuando lo
+   hace después de que los avisos salieron, hay gente con una cifra
+   nuestra en la mano que ya no es verdad. Esto es lo que se les dice.
+
+   Tres cosas que este correo hace y el primero no:
+
+     · nombra la cifra VIEJA. «Tu promesa es de $14.50» a secas no se
+       entiende cuando en el bolsillo hay un correo que dice $17.00;
+       se entiende «te dijimos $17.00, y son $14.50».
+     · sabe decir CERO. Es el caso que más importa y el más fácil de
+       escribir mal: alguien que quedó por debajo del mínimo no «debe
+       menos», no debe NADA, y hay que decirlo sin rodeos.
+     · sabe que puede no haber marcador. Un juego cuyo resultado se
+       borró no tiene un «de X a Y» que contar.
+
+   Y el error es nuestro, así que se dice que es nuestro. No se le
+   pide disculpas al padrino por algo que hizo el anotador, pero
+   tampoco se escribe en pasiva para que no parezca de nadie. */
+function correccionJuegoTextos(lang, o) {
+  const money = (n) => '$' + Number(n || 0).toFixed(2);
+  const comoPagar = String(o.payHow || '').trim();
+  const cero   = Number(o.pledged || 0) <= 0;
+  const borrado = !!o.sinMarcador;
+
+  const marcador = o.oppPoints != null
+    ? `${o.points}–${o.oppPoints}` : String(o.points);
+
+  if (lang === 'es') {
+    const queCambio = borrado
+      ? `El resultado de ese juego se retiró, así que por ahora no hay marcador que contar.`
+      : `El marcador quedó finalmente en <b>${marcador}</b>, no en el que te dimos.`;
+
+    const laCuenta = cero
+      ? (borrado
+          ? `Eso quiere decir que <b>no debes nada</b>. Olvida la cifra del correo anterior.`
+          : `Con ese marcador tu promesa queda por debajo del mínimo de ${money(o.piso)}, ` +
+            `así que <b>no debes nada</b>. Olvida los ${money(o.antes)} que te dijimos.`)
+      : `Te dijimos ${money(o.antes)}. Con el marcador bueno tu promesa es de ` +
+        `<b>${money(o.pledged)}</b>.`;
+
+    const comoSigue = cero
+      ? `No tienes que hacer nada. Cada Punto Cuenta no cobra pagos y no te va a escribir ` +
+        `más por este juego.`
+      : (comoPagar
+          ? `Ese dinero se lo pagas directamente a ${o.teamName}: <b>${comoPagar}</b>`
+          : `Ese dinero se lo pagas directamente a ${o.teamName}.`) +
+        (o.contactEmail
+          ? ` Si algo no te cuadra, escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}.`
+          : '');
+
+    return {
+      subject: `Corrección — tu promesa con ${o.teamName}`,
+      lines: [
+        `Hola ${o.name},`,
+        `Te escribimos hace poco con el resultado de <b>${o.teamName}</b> ${o.label}. ` +
+          `Nos equivocamos de cifra y queremos arreglarlo antes de que pagues de más o de menos.`,
+        queCambio,
+        laCuenta,
+        comoSigue,
+      ],
+    };
+  }
+
+  const queCambio = borrado
+    ? `That game's result was withdrawn, so for now there is no score to report.`
+    : `The final score came in at <b>${marcador}</b>, not the one we gave you.`;
+
+  const laCuenta = cero
+    ? (borrado
+        ? `That means you <b>owe nothing</b>. Please ignore the amount in our last email.`
+        : `At that score your pledge falls below the ${money(o.piso)} minimum, so you ` +
+          `<b>owe nothing</b>. Please ignore the ${money(o.antes)} we told you.`)
+    : `We told you ${money(o.antes)}. At the correct score your pledge is ` +
+      `<b>${money(o.pledged)}</b>.`;
+
+  const comoSigue = cero
+    ? `There is nothing for you to do. Cada Punto Cuenta takes no payments and will not ` +
+      `write to you about this game again.`
+    : (comoPagar
+        ? `You pay that directly to ${o.teamName}: <b>${comoPagar}</b>`
+        : `You pay that directly to ${o.teamName}.`) +
+      (o.contactEmail
+        ? ` If something does not look right, write to ${o.contactName || o.teamName}: ` +
+          `${o.contactEmail}.`
+        : '');
+
+  return {
+    subject: `Correction — your pledge with ${o.teamName}`,
+    lines: [
+      `Hi ${o.name},`,
+      `We wrote to you recently with <b>${o.teamName}</b>'s result ${o.label}. ` +
+        `We gave you the wrong figure and we want to fix it before you pay too much or too little.`,
+      queCambio,
+      laCuenta,
+      comoSigue,
+    ],
+  };
+}
+
+async function sendGameCorrection(o) {
+  return enviarAviso(o, [correccionJuegoTextos('es', o), correccionJuegoTextos('en', o)]);
+}
+
+/* El sobre, uno solo. El aviso y la corrección se diferencian en lo
+   que dicen y en nada más: mismo armazón, mismo bilingüe, mismo pie,
+   misma manera de fallar. Tener dos copias de esto es tener dos el día
+   que una cambie — y la que cambiaría tarde sería la de la corrección,
+   que es la que menos se mira. */
+async function enviarAviso(o, partes) {
   const bloque = (t) => t.lines.map(l => `<p>${l}</p>`).join('\n      ');
 
   const html = `
@@ -837,37 +952,118 @@ async function sendGameNotice(o) {
     }),
   });
 
-  if (!r.ok) throw new Error(`(${r.status}) ${await r.text()}`);
+  if (!r.ok) throw await falloDeCorreo(r);
   return r.json();
+}
+
+async function sendGameNotice(o) {
+  return enviarAviso(o, [avisoJuegoTextos('es', o), avisoJuegoTextos('en', o)]);
+}
+
+/* ── Por qué falló un correo, y si volver a intentarlo sirve ───────
+
+   Un fallo de envío llevaba sólo un texto, así que todos pesaban lo
+   mismo: se reintentaban para siempre y todos frenaban la factura. Eso
+   es correcto para un proveedor caído y absurdo para una dirección que
+   no existe — un padrino que teclea mal su correo dejaría al programa
+   sin licencia PARA SIEMPRE.
+
+   Se marca permanente con la mano MUY cerrada, y a propósito. Lo que
+   cuesta equivocarse no es simétrico: tratar un fallo temporal como
+   permanente deja a un padrino sin su aviso y nadie se entera nunca;
+   tratar uno permanente como temporal sólo cuesta reintentos. Ante la
+   duda, temporal. */
+async function falloDeCorreo(r) {
+  let cuerpo = '';
+  try { cuerpo = await r.text(); } catch (e) { cuerpo = ''; }
+
+  const texto = String(cuerpo || '').toLowerCase();
+
+  /* 422 es lo que contesta Resend cuando la dirección no es una
+     dirección. Un 403 o un 400 NO entran aquí aunque lo parezcan: una
+     llave mal puesta o un cuerpo mal formado darían eso mismo para
+     TODOS los padrinos a la vez, y marcarlos a todos como
+     inalcanzables sería escribir una mentira en cuarenta y siete
+     filas. Un 429 y cualquier 5xx son temporales por definición. */
+  const permanente = r.status === 422 && (
+    /invalid.*(email|recipient|address|`?to`?)/.test(texto) ||
+    /not a valid email/.test(texto) ||
+    /unknown recipient|no such (user|mailbox)|does not exist/.test(texto)
+  );
+
+  const e = new Error(`(${r.status}) ${cuerpo}`);
+  e.status = r.status;
+  e.permanente = permanente;
+  e.cuerpo = cuerpo;
+  return e;
 }
 
 /* La licencia de UN juego. Mismo orden que facturarLicencia: la fila
    primero, porque el índice único es lo único que impide dos facturas
-   por el mismo juego cuando el botón y el barrido coinciden; y si
-   Stripe falla, la fila se retira para poder reintentarlo. */
+   por el mismo juego cuando el botón y el barrido coinciden.
+
+   SI STRIPE FALLA, LA FILA SE QUEDA. Antes se borraba —"se retira para
+   poder reintentarlo"— y eso se escribió creyendo que la fila era lo
+   que estorbaba. Lo que estorbaba era el índice; la fila era la única
+   constancia de que este juego debía dinero. Borrarla dejaba el cobro
+   sin rastro en el mismo gesto con el que se suponía que lo salvaba.
+   Ahora se marca `fallida` con lo que dijo Stripe, y el reintento reusa
+   esa misma fila: así los intentos se cuentan en un sitio. */
 async function facturarLicenciaJuego(game_id, rep, torneo, juego_no) {
+  /* Un juego de prueba llega hasta aquí con su peldaño bien calculado y
+     se va sin factura. Se dice con su propio nombre y no como
+     'sin_promesas', que es otra cosa y llevaría a buscar el fallo donde
+     no está. */
+  if (rep.prueba)         return { estado: 'prueba' };
   if (!rep.cobrable)      return { estado: 'sin_promesas' };
   if (rep.ya_facturada)   return { estado: 'ya_facturada', licencia: rep.licencia };
   if (!rep.program_email) return { estado: 'sin_correo' };
 
-  const { data: fila, error: errFila } = await supabase
+  const campos = {
+    campaign_id: rep.campaign_id,
+    torneo: torneo || null,
+    juego_no: juego_no || null,
+    amount_cents: rep.amount_cents,
+    promesas: rep.promesas,
+    recaudado: rep.recaudado,
+    estado: 'open'
+  };
+
+  let { data: fila, error: errFila } = await supabase
     .from('licencias_juego')
-    .insert({
-      game_id,
-      campaign_id: rep.campaign_id,
-      torneo: torneo || null,
-      juego_no: juego_no || null,
-      amount_cents: rep.amount_cents,
-      promesas: rep.promesas,
-      recaudado: rep.recaudado,
-      estado: 'open'
-    })
+    .insert({ game_id, ...campos, intentos: 1 })
     .select()
     .single();
 
   if (errFila) {
-    if (errFila.code === '23505') return { estado: 'ya_facturada' };
-    return { estado: 'error', why: errFila.message };
+    if (errFila.code !== '23505') return { estado: 'error', why: errFila.message };
+
+    /* Choque con el índice: o ya está facturado de verdad, o es la
+       fila fallida de un intento anterior, que es la que hay que
+       reusar. La cuenta se reescribe porque el marcador pudo haberse
+       corregido entre el intento que falló y este. */
+    const { data: previa } = await supabase
+      .from('licencias_juego')
+      .select('*')
+      .eq('game_id', game_id)
+      .neq('estado', 'anulada')
+      .limit(1)
+      .maybeSingle();
+
+    if (!previa)                   return { estado: 'ya_facturada' };
+    if (previa.estado !== 'fallida') {
+      return { estado: 'ya_facturada', licencia: previa };
+    }
+
+    const { data: reusada, error: errReuso } = await supabase
+      .from('licencias_juego')
+      .update({ ...campos, intentos: Number(previa.intentos || 0) + 1 })
+      .eq('id', previa.id)
+      .select()
+      .single();
+
+    if (errReuso) return { estado: 'error', why: errReuso.message };
+    fila = reusada;
   }
 
   try {
@@ -925,104 +1121,226 @@ async function facturarLicenciaJuego(game_id, rep, torneo, juego_no) {
     };
 
   } catch (eStripe) {
-    await supabase.from('licencias_juego').delete().eq('id', fila.id);
-    console.error('Licencia de juego — Stripe falló, fila retirada:', eStripe);
-    return { estado: 'stripe', why: String(eStripe && eStripe.message || eStripe) };
+    const porque = String(eStripe && eStripe.message || eStripe);
+
+    /* La fila SE QUEDA, marcada y con la razón. torneo_juegos_cobrables
+       no cuenta `fallida` como factura buena, así que este juego vuelve
+       a salir en el barrido y el reintento es el mismo botón de
+       siempre — sin que nadie tenga que acordarse de nada. */
+    await supabase.from('licencias_juego').update({
+      estado: 'fallida',
+      fallo: porque,
+      fallo_el: new Date().toISOString(),
+    }).eq('id', fila.id);
+
+    console.error('Licencia de juego — Stripe falló, fila marcada fallida:', eStripe);
+    return { estado: 'stripe', why: porque, licencia_id: fila.id,
+             intentos: Number(fila.intentos || 1) };
   }
 }
 
 /* Un juego: avisos y factura. Devuelve la cuenta de lo que pasó para
    que el barrido de un torneo pueda juntarlas sin repetir nada. */
+/* Un juego: avisos, correcciones y factura. Devuelve la cuenta de lo
+   que pasó para que el barrido de un torneo pueda juntarlas sin
+   repetir nada.
+
+   LO CONDUCE juego_correcciones Y NO juego_reporte, y ese cambio es
+   todo el paso 2.
+
+   juego_reporte se apoya en licencia_juego_calculo, que contesta
+   «sin-marcador» en cuanto el juego no tiene puntos. Es lo correcto
+   para facturar y es ciego para lo que hace falta aquí: el anotador
+   puede BORRAR un marcador, no sólo corregirlo, y cuando lo hace sus
+   padrinos siguen teniendo en el correo una cifra que ya no existe.
+   Conducido por el reporte, este bucle ni siquiera podía enumerarlos.
+
+   Y la lista blanca de estados que había —open, pending y nada más—
+   era correcta para un reintento y desastrosa para una corrección: es
+   lo que impide escribirle dos veces a una abuela cuando un envío
+   falla a la mitad, y lo mismo que impedía decirle que el número que
+   le dimos estaba mal. Ahora quien decide es la base, promesa por
+   promesa, y aquí sólo se manda lo que diga. */
 async function cobrarJuego(code, game_id, torneo, juego_no) {
-  const { data: rep, error } = await supabase.rpc('juego_reporte', {
+  const { data: corr, error } = await supabase.rpc('juego_correcciones', {
     p_code: String(code), p_game: String(game_id),
   });
 
   if (error) return { ok: false, error: 'report failed', why: error.message };
-  if (!rep || rep.ok !== true) return { ok: false, error: (rep && rep.error) || 'not allowed' };
+  if (!corr || corr.ok !== true) {
+    return { ok: false, error: (corr && corr.error) || 'not allowed' };
+  }
 
-  const out = { ok: true, game_id, juego: rep.juego, programa: rep.programa,
-                sent: 0, skipped: 0, zero: 0, failed: 0, errors: [] };
+  const out = { ok: true, game_id, juego: corr.juego, programa: corr.programa,
+                sent: 0, corrected: 0, skipped: 0, zero: 0,
+                failed: 0, undeliverable: 0, errors: [] };
 
-  const puntos   = Number(rep.puntos || 0);
-  const piso     = Number(rep.piso_centavos || 500);
-  const teamName = rep.programa || 'the program';
+  const puntos   = Number(corr.puntos || 0);
+  const piso     = Number(corr.piso_centavos || 500) / 100;
+  const teamName = corr.programa || 'the program';
+  const pledges  = corr.pledges || [];
 
-  for (const p of rep.pledges || []) {
-    /* Lista blanca, igual que en los retos: un estado nuevo que no
-       esté aquí deja al padrino sin aviso y se ve en «saltadas»; al
-       revés, acabaría escribiéndole dos veces y eso no se retira. */
-    const SIN_AVISAR = [null, undefined, '', 'open', 'pending'];
-    if (SIN_AVISAR.indexOf(p.estado) === -1) { out.skipped++; continue; }
+  /* Cuántos PODRÍAN fallar de forma permanente. Si fallan todos, no
+     son cuarenta y siete direcciones malas: es nuestra configuración,
+     y marcarlas a todas como inalcanzables escribiría una mentira en
+     cuarenta y siete filas que nadie volvería a mirar. */
+  const candidatos = pledges.filter(p => p.accion === 'primero' || p.accion === 'correccion').length;
+  let permanentes = 0;
 
-    const total = Number(p.total || 0);
-    const cents = Math.round(total * 100);
+  for (const p of pledges) {
+    const debe  = Number(p.debe || 0);
+    const antes = p.dijimos == null ? null : Number(p.dijimos);
 
-    /* Sin puntos no hay promesa que avisar, y por debajo del piso no
-       se le pide a nadie. Se cierran con su cifra guardada en vez de
-       quedarse abiertas para siempre, pero NO con 'void': siguen
-       saliendo en el reporte con su cero, que es la verdad. */
-    if (cents <= 0 || cents < piso) {
-      await supabase.from('game_pledges').update({
-        points: puntos, team_amount: total, amount: total, platform_amount: 0,
-        invoice_status: cents <= 0 ? 'no_points' : 'too_small',
-      }).eq('id', p.id);
+    /* Ya se le escribió y la cifra no ha cambiado. */
+    if (p.accion === 'nada') { out.skipped++; continue; }
+
+    /* Su dirección rechazó el correo para siempre y sigue siendo la
+       misma dirección. Reintentarla no la hace existir. Sale en la
+       cuenta para que el programa sepa a quién no se le pudo decir. */
+    if (p.accion === 'no_entregable') {
+      out.undeliverable++;
+      out.errors.push(`${p.email}: ${p.fallo || 'undeliverable'}`);
+      continue;
+    }
+
+    /* Nunca se le escribió y sigue sin deber nada: se cierra con su
+       cifra guardada, sin correo. No se marca 'void' — sigue saliendo
+       en el reporte con su cero, que es la verdad. */
+    if (p.accion === 'cero') {
+      await supabase.rpc('pledge_en_cero', {
+        p_id: p.id, p_puntos: puntos,
+        p_porque: puntos <= 0 ? 'no_points' : 'too_small',
+      });
       out.zero++;
       continue;
     }
 
-    /* La cuenta se guarda ANTES de mandar: si el correo falla, el
-       número ya está bueno y el aviso se puede repetir. amount va
-       igual que team_amount y platform_amount a cero — al padrino no
-       se le cobra recargo ninguno. */
-    await supabase.from('game_pledges').update({
-      points: puntos, team_amount: total, amount: total, platform_amount: 0,
-    }).eq('id', p.id);
-
+    const esCorreccion = p.accion === 'correccion';
     const bruto = +(Number(p.rate) * puntos).toFixed(2);
+    const mordio = p.cap != null && debe > 0 && debe < bruto;
+
+    const sobre = {
+      to: p.email,
+      name: p.nombre,
+      teamName,
+      label: corr.juego,
+      points: puntos,
+      oppPoints: corr.opp_points != null ? corr.opp_points : null,
+      payHow: corr.pay_how,
+      contactName: corr.program_name || null,
+      contactEmail: corr.program_email || null,
+      rate: Number(p.rate),
+      pledged: debe,
+      cap:   mordio ? Number(p.cap) : null,
+      bruto: mordio ? bruto : null,
+      // Sólo la corrección los usa.
+      antes: antes,
+      piso: piso,
+      sinMarcador: !!corr.sin_marcador,
+    };
 
     try {
-      await sendGameNotice({
-        to: p.email,
-        name: p.nombre,
-        teamName,
-        label: rep.juego,
-        points: puntos,
-        oppPoints: rep.opp_points != null ? rep.opp_points : null,
-        payHow: rep.pay_how,
-        contactName: rep.program_name || null,
-        contactEmail: rep.program_email || null,
-        rate: Number(p.rate),
-        pledged: total,
-        // El tope sólo se menciona si de verdad mordió.
-        cap:   p.cap != null && total < bruto ? Number(p.cap) : null,
-        bruto: p.cap != null && total < bruto ? bruto : null,
+      if (esCorreccion) await sendGameCorrection(sobre);
+      else              await sendGameNotice(sobre);
+
+      /* La cuenta se guarda DESPUÉS de que el correo salga, y con la
+         cifra que llevaba: lo que hay que recordar es lo que el
+         padrino LEYÓ. Recalcularla aquí guardaría un número que nadie
+         recibió si alguien tocó el marcador entre medias. */
+      await supabase.rpc('pledge_avisado', {
+        p_id: p.id, p_puntos: puntos, p_monto: debe,
       });
 
-      await supabase.from('game_pledges').update({
-        invoice_status: 'sent',
-        invoiced_at: new Date().toISOString(),
-      }).eq('id', p.id);
-      out.sent++;
+      if (esCorreccion) out.corrected++; else out.sent++;
+
     } catch (e) {
-      out.failed++;
-      out.errors.push(`${p.email}: ${e.message}`);
+      /* Permanente: se cierra en su propio estado, con el motivo y la
+         dirección que falló. NO se marca como enviado — no se envió.
+         Temporal: no se toca nada, así que la próxima pasada lo
+         vuelve a intentar con la misma cifra. */
+      if (e && e.permanente && candidatos > 1 && permanentes + 1 >= candidatos) {
+        /* Han fallado todas. Eso no son direcciones malas. */
+        out.failed++;
+        out.errors.push(`${p.email}: ${e.message} (every address failed — treated as temporary)`);
+      } else if (e && e.permanente) {
+        permanentes++;
+        await supabase.rpc('pledge_no_entregable', {
+          p_id: p.id, p_puntos: puntos, p_monto: debe,
+          p_motivo: String(e.message || e),
+        });
+        out.undeliverable++;
+        out.errors.push(`${p.email}: ${e.message}`);
+      } else {
+        out.failed++;
+        out.errors.push(`${p.email}: ${e.message}`);
+      }
     }
   }
 
-  /* LA FACTURA SALE CON LOS AVISOS, y las tres reglas de siempre:
-     va al final y en su propio try, no sale si algún aviso falló
-     —cobrar con un padrino sin avisar es cobrar por un resultado a
-     medio dar—, y no decide ella si hay que cobrar: eso lo dijo
-     licencia_juego_calculo. */
+  /* ── LA FACTURA ───────────────────────────────────────────────────
+
+     Sigue saliendo con los avisos y sigue sin salir si queda trabajo
+     de avisos a medias. Lo que cambia es QUÉ cuenta como «a medias».
+
+     Antes contaba cualquier fallo, y eso le daba a un padrino que
+     tecleó mal su correo el poder de dejar al programa sin licencia
+     para siempre: el aviso nunca iba a salir, así que la factura
+     nunca iba a salir, y el juego se quedaba colgado en la lista de
+     pendientes sin manera de cerrarlo.
+
+     Ahora sólo frenan los fallos TEMPORALES, que son los que de
+     verdad están a medias. Una dirección muerta llegó a su final: se
+     guarda, se reporta, y deja de bloquear algo que no tiene que ver
+     con ella. El programa paga por las promesas que recogió, y las
+     recogió igual. */
+  if (corr.sin_marcador) {
+    /* Sin marcador no hay nada que facturar. Si ya había una factura
+       hecha, lo que importa es si sigue cuadrando — y eso lo contesta
+       juego_licencia_cuadra, no un update a escondidas sobre una
+       factura que alguien ya tiene en la mano. */
+    const { data: cuadra } = await supabase.rpc('juego_licencia_cuadra', {
+      p_code: String(code), p_game: String(game_id),
+    });
+    out.licencia = { estado: 'sin_marcador',
+                     cuadra: cuadra ? cuadra.cuadra : null,
+                     facturada: cuadra ? cuadra.facturada : null };
+    return out;
+  }
+
   if (out.failed > 0) {
     out.licencia = { estado: 'avisos_pendientes' };
-  } else {
-    try {
-      out.licencia = await facturarLicenciaJuego(game_id, rep, torneo, juego_no);
-    } catch (e) {
-      console.error('game-notices licencia:', e);
-      out.licencia = { estado: 'error', why: String(e && e.message || e) };
+    return out;
+  }
+
+  const { data: rep, error: errRep } = await supabase.rpc('juego_reporte', {
+    p_code: String(code), p_game: String(game_id),
+  });
+
+  if (errRep || !rep || rep.ok !== true) {
+    out.licencia = { estado: 'error',
+                     why: (errRep && errRep.message) || (rep && rep.error) || 'no report' };
+    return out;
+  }
+
+  try {
+    out.licencia = await facturarLicenciaJuego(game_id, rep, torneo, juego_no);
+  } catch (e) {
+    console.error('game-notices licencia:', e);
+    out.licencia = { estado: 'error', why: String(e && e.message || e) };
+  }
+
+  /* Y si la licencia ya estaba hecha, se dice si el marcador de hoy la
+     dejó descuadrada. No se reescribe: reemitir o abonar una factura
+     que alguien ya tiene es una decisión con una persona al otro lado,
+     no un update. */
+  if (out.licencia && (out.licencia.estado === 'ya_facturada')) {
+    const { data: cuadra } = await supabase.rpc('juego_licencia_cuadra', {
+      p_code: String(code), p_game: String(game_id),
+    });
+    if (cuadra && cuadra.cuadra === false) {
+      out.licencia.cuadra = false;
+      out.licencia.calculo_hoy = cuadra.calculo_hoy;
+      out.licencia.facturada  = cuadra.facturada;
     }
   }
 
@@ -1059,16 +1377,34 @@ app.post('/tournament-notices', async (req, res) => {
                                                       { p_torneo: String(torneo) });
     if (error) return res.status(500).json({ error: 'list failed', why: error.message });
 
-    const out = { torneo, juegos: [], sent: 0, failed: 0, facturados: 0 };
+    const out = { torneo, juegos: [], sent: 0, corrected: 0, failed: 0,
+                  undeliverable: 0, facturados: 0, por_texto: 0, pruebas: 0 };
 
     /* De uno en uno y no en paralelo: son correos y facturas de
        Stripe, y veinte a la vez es como se tropieza con un límite de
        tasa a mitad de un torneo. */
     for (const j of juegos || []) {
       const r = await cobrarJuego(code, j.game_id, torneo, j.juego_no);
-      out.juegos.push({ juego_no: j.juego_no, ...r });
-      out.sent   += r.sent   || 0;
-      out.failed += r.failed || 0;
+
+      /* por_texto y prueba vienen de la lista, no del cobro, y suben
+         hasta la respuesta porque son las dos cosas que el panel tiene
+         que poder ver sin que nadie abra una consulta: un enlace
+         adivinado por texto es un juego que puede dejar de encontrarse
+         mañana, y un juego de prueba explica por sí solo por qué no
+         salió factura. */
+      out.juegos.push({ juego_no: j.juego_no,
+                        por_texto: !!j.por_texto,
+                        prueba:    !!j.prueba,
+                        avisos_pendientes:  Number(j.avisos_pendientes || 0),
+                        licencia_pendiente: !!j.licencia_pendiente,
+                        ...r });
+
+      out.sent          += r.sent          || 0;
+      out.corrected     += r.corrected     || 0;
+      out.failed        += r.failed        || 0;
+      out.undeliverable += r.undeliverable || 0;
+      if (j.por_texto) out.por_texto++;
+      if (j.prueba)    out.pruebas++;
       if (r.licencia && r.licencia.estado === 'enviada') out.facturados++;
     }
 
