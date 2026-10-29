@@ -55,6 +55,18 @@ for (const o of [
   'http://localhost:8080',
 ]) si(pasa(o), o);
 
+/* cognitivo.digital YA NO ENTRA, y es a propósito. El sitio principal
+   se movió allí un día y volvió a cadapunto.com al siguiente; el
+   servidor lo retiró de la lista el 26. Esta prueba seguía esperándolo
+   dentro, así que estaba roja por defender una decisión ya tomada —
+   que es lo que hace una prueba vieja: pedir que se deshaga el
+   arreglo. Se queda comprobado por el otro lado, abajo, donde se
+   comprueba que NO entra. */
+si(!pasa('https://cognitivo.digital'),
+   'https://cognitivo.digital — retirado el 26, y sigue fuera');
+si(!pasa('https://www.cognitivo.digital'),
+   'https://www.cognitivo.digital — igual, con www');
+
 /* El dominio viejo se queda mientras siga en pie y redirija: un
    enlace que alguien guardó llega por ahí. El día que se apague,
    esta línea se quita — y entonces hay que venir a quitarla aquí,
@@ -71,6 +83,13 @@ for (const o of [
   ['https://atacante.net/cadapunto.com', 'uno que lo lleva en la ruta'],
   ['https://micadapunto.com', 'uno pegado por delante'],
   ['https://cadapunto.net', 'el mismo nombre con otra terminación'],
+  /* Las mismas trampas contra el dominio retirado, para que volver a
+     meterlo tenga que ser una decisión y no un descuido. */
+  ['http://cognitivo.digital', 'el retirado por http, sin cifrar'],
+  ['https://cognitivo.digital.atacante.net', 'uno que EMPIEZA por el retirado'],
+  ['https://micognitivo.digital', 'el retirado pegado por delante'],
+  ['https://cognitivo.com', 'cognitivo con otra terminación — no es nuestro'],
+  ['https://cognitivo.digitalx', 'el retirado con una letra de más'],
   ['https://evil.com', 'uno cualquiera'],
 ]) si(!pasa(o[0]), o[1] + (o[0] ? ' (' + o[0] + ')' : ''));
 
