@@ -850,9 +850,17 @@ function correccionJuegoTextos(lang, o) {
       : `Te dijimos ${money(o.antes)}. Con el marcador bueno tu promesa es de ` +
         `<b>${money(o.pledged)}</b>.`;
 
+    /* EL CASO DEL MARCADOR RETIRADO NO ES UN FINAL. Decía «no te
+       vamos a escribir más por este juego», y si el anotador vuelve
+       a poner el resultado —que es lo normal: lo retira porque se
+       equivocó— le escribimos otra vez al minuto siguiente. Prometer
+       no escribir y escribir es peor que no prometer nada. */
     const comoSigue = cero
-      ? `No tienes que hacer nada. Cada Punto Cuenta no cobra pagos y no te va a escribir ` +
-        `más por este juego.`
+      ? (borrado
+          ? `No tienes que hacer nada por ahora. Si el juego acaba teniendo marcador, ` +
+            `te escribimos una vez más con la cifra buena. Cada Punto Cuenta no cobra pagos.`
+          : `No tienes que hacer nada. Cada Punto Cuenta no cobra pagos y no te va a ` +
+            `escribir más por este juego.`)
       : (comoPagar
           ? `Ese dinero se lo pagas directamente a ${o.teamName}: <b>${comoPagar}</b>`
           : `Ese dinero se lo pagas directamente a ${o.teamName}.`) +
@@ -886,8 +894,11 @@ function correccionJuegoTextos(lang, o) {
       `<b>${money(o.pledged)}</b>.`;
 
   const comoSigue = cero
-    ? `There is nothing for you to do. Cada Punto Cuenta takes no payments and will not ` +
-      `write to you about this game again.`
+    ? (borrado
+        ? `There is nothing for you to do for now. If the game ends up with a score, we ` +
+          `will write once more with the right figure. Cada Punto Cuenta takes no payments.`
+        : `There is nothing for you to do. Cada Punto Cuenta takes no payments and will ` +
+          `not write to you about this game again.`)
     : (comoPagar
         ? `You pay that directly to ${o.teamName}: <b>${comoPagar}</b>`
         : `You pay that directly to ${o.teamName}.`) +
@@ -954,6 +965,192 @@ async function enviarAviso(o, partes) {
 
   if (!r.ok) throw await falloDeCorreo(r);
   return r.json();
+}
+
+
+/* ── EL REPORTE DEL ENTRENADOR ─────────────────────────────────────
+
+   Lo que faltaba al final del camino. Los padrinos reciben su aviso y
+   el entrenador no recibía nada: para saber a quién le toca cobrar
+   tenía que acordarse de abrir reporte.html, escribir su código otra
+   vez y bajarse una hoja. Un paso que se olvida es un paso que no
+   existe, y el que se olvidaba era justo el de cobrar.
+
+   Sale con los avisos y no con el marcador. El marcador se puede
+   retirar y volver a poner —pasa— y un reporte mandado en ese momento
+   llevaría cifras que nadie recibió. Lo que vale es lo que los
+   padrinos LEYERON, y eso se sabe cuando los avisos salieron.
+
+   NO LLEVA ENLACE DE PAGO Y NO PIDE NADA. El programa cobra por su
+   cuenta, como siempre: esto es la lista de a quién, cuánto y en qué
+   estado quedó cada uno. Tampoco dice nada de deducciones.           */
+
+function dineroR(n) {
+  return '$' + Number(n || 0).toFixed(2);
+}
+
+function reporteEntrenadorTextos(lang, o) {
+  const es = lang === 'es';
+  const marcador = (o.puntos != null)
+    ? `${o.puntos}${o.rivalPuntos != null ? '–' + o.rivalPuntos : ''}`
+    : (es ? 'sin marcador' : 'no score');
+
+  const L = [];
+  L.push(es
+    ? `<b>${o.programa}</b> anotó ${o.puntos} puntos en ${o.juego} contra ${o.rival} (${marcador}).`
+    : `<b>${o.programa}</b> scored ${o.puntos} points in ${o.juego} against ${o.rival} (${marcador}).`);
+
+  L.push(es
+    ? `Ese juego recogió <b>${dineroR(o.cobrable)}</b> en promesas, de ${o.cobrables} padrino(s).`
+    : `That game raised <b>${dineroR(o.cobrable)}</b> in pledges, from ${o.cobrables} padrino(s).`);
+
+  if (o.avisados > 0) {
+    L.push(es
+      ? `A ${o.avisados} ${o.avisados === 1 ? 'ya se le escribió' : 'ya se les escribió'} con su cifra. No se les vuelve a escribir: un aviso por juego y sin recordatorios.`
+      : `${o.avisados} have been written to with their figure. They are not written to again: one notice per game and no reminders.`);
+  }
+  if (o.bajoMinimo > 0) {
+    L.push(es
+      ? `${o.bajoMinimo} promesa(s) no llegaron al mínimo de ${dineroR(o.piso)} y se cerraron sin aviso. No se le cobra nada a nadie por ellas.`
+      : `${o.bajoMinimo} pledge(s) did not reach the ${dineroR(o.piso)} minimum and were closed without a notice. Nobody is charged for those.`);
+  }
+  if (o.noEntregable > 0) {
+    L.push(es
+      ? `<b>${o.noEntregable} correo(s) rebotaron para siempre.</b> Esa gente no se entera por correo — hay que llamarlos. Salen marcados abajo.`
+      : `<b>${o.noEntregable} address(es) bounced permanently.</b> Those people will not hear by email — they need a call. They are marked below.`);
+  }
+
+  L.push(es
+    ? `Cobrar es tuyo: nosotros no tocamos el dinero en ningún momento. Esto es la lista de a quién le toca y cuánto.`
+    : `Collecting is yours: we never touch the money at any point. This is the list of who owes and how much.`);
+
+  return {
+    subject: `${o.programa} · ${o.juego}: ${dineroR(o.cobrable)} en promesas`,
+    lines: L,
+  };
+}
+
+/* La tabla va una sola vez, entre los dos idiomas. Son nombres y
+   cifras: traducirlas sería escribir los mismos números dos veces y
+   doblar el largo de un correo que se lee de un vistazo. */
+function tablaPadrinos(lang, pledges) {
+  const es = lang === 'es';
+  const th = (t) => `<th style="text-align:left;padding:6px 8px;border-bottom:2px solid #12202E;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#5A6B7C">${t}</th>`;
+  const td = (t, extra) => `<td style="padding:7px 8px;border-bottom:1px solid #D7E0E8;${extra || ''}">${t}</td>`;
+
+  const filas = pledges.map((p) => {
+    const nota = [];
+    if (p.no_entregable) nota.push(es ? 'rebotó — llámalo' : 'bounced — call them');
+    else if (p.bajo_minimo) nota.push(es ? 'bajo el mínimo' : 'below minimum');
+    else if (p.pendiente) nota.push(es ? 'sin avisar' : 'not notified');
+    else if (p.corregido) nota.push(es ? 'corregido' : 'corrected');
+
+    const alerta = p.no_entregable ? 'color:#A8323F;font-weight:700' : '';
+    return `<tr>
+      ${td(`<b>${escaparHtml(p.padrino || '')}</b><br><span style="color:#5A6B7C;font-size:13px">${escaparHtml(p.correo || '')}</span>`)}
+      ${td(`${dineroR(p.tarifa)}${es ? '/punto' : '/point'}`, 'white-space:nowrap;color:#5A6B7C')}
+      ${td(`<b>${dineroR(p.total)}</b>`, 'white-space:nowrap;text-align:right')}
+      ${td(nota.join(''), `font-size:13px;${alerta}`)}
+    </tr>`;
+  }).join('\n');
+
+  return `<table style="width:100%;border-collapse:collapse;margin:18px 0;font-size:14px">
+    <tr>${th(es ? 'Padrino' : 'Padrino')}${th(es ? 'Promesa' : 'Pledge')}${th(es ? 'Debe' : 'Owes')}${th('')}</tr>
+    ${filas}
+  </table>`;
+}
+
+function escaparHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[m]));
+}
+
+async function sendCoachReport(o) {
+  const bloque = (t) => t.lines.map((l) => `<p>${l}</p>`).join('\n      ');
+  const es = reporteEntrenadorTextos('es', o);
+  const en = reporteEntrenadorTextos('en', o);
+
+  const html = `
+    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#12202E;font-size:15px;line-height:1.6">
+      ${bloque(es)}
+      ${tablaPadrinos('es', o.pledges)}
+      <hr style="border:none;border-top:1px solid #D7E0E8;margin:22px 0">
+      ${bloque(en)}
+      <p style="color:#5A6B7C;font-size:.8rem;margin-top:22px">
+        Cada Punto Cuenta · Gostar Digital LLC · Puerto Rico
+      </p>
+    </div>`;
+
+  const texto = (t) => t.lines.map((l) => l.replace(/<[^>]+>/g, '')).join('\n');
+  const listaTexto = o.pledges.map((p) =>
+    `  ${p.padrino} <${p.correo}>  ${dineroR(p.tarifa)}/pt  ${dineroR(p.total)}` +
+    (p.no_entregable ? '  [rebotó]' : p.bajo_minimo ? '  [bajo el mínimo]'
+      : p.pendiente ? '  [sin avisar]' : '')).join('\n');
+
+  const text = `${texto(es)}\n\n${listaTexto}\n\n---\n\n${texto(en)}\n`;
+
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
+
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: MAIL_FROM_HOOPORIA,
+      to: [o.to],
+      ...(MAIL_REPLY_TO ? { reply_to: MAIL_REPLY_TO } : {}),
+      subject: es.subject,
+      html, text,
+    }),
+  });
+
+  if (!r.ok) throw await falloDeCorreo(r);
+  return r.json();
+}
+
+/* Se llama al final del cobro de un juego, y NUNCA puede tumbarlo:
+   lo que importa de esa llamada son los avisos a los padrinos y la
+   licencia. Que el entrenador no reciba su copia es una molestia; que
+   un padrino no reciba su aviso porque el correo del entrenador
+   rebotó sería un disparate. Por eso todo esto va dentro de su try y
+   lo único que deja es una línea en el registro. */
+async function reporteAlEntrenador(code, game_id) {
+  const { data: rep, error } = await supabase.rpc('juego_reporte_cobro', {
+    p_code: String(code), p_game: String(game_id),
+  });
+
+  if (error || !rep || rep.ok !== true) {
+    return { estado: 'sin_reporte', why: (error && error.message) || (rep && rep.error) || null };
+  }
+
+  const ent = rep.entrenador || {};
+  if (!ent.correo) return { estado: 'sin_entrenador' };
+
+  const res = rep.resumen || {};
+  const pledges = (rep.pledges || []).filter((p) => !p.no_entregable || true);
+
+  if (!pledges.length) return { estado: 'sin_promesas' };
+
+  await sendCoachReport({
+    to: ent.correo,
+    programa: rep.campana || 'tu programa',
+    juego: rep.juego || '',
+    rival: rep.rival || '',
+    puntos: rep.puntos,
+    rivalPuntos: rep.rival_puntos,
+    cobrable: Number(res.prometido || 0),
+    cobrables: Number(res.cobrables || 0),
+    avisados: (rep.pledges || []).filter((p) => p.avisado).length,
+    bajoMinimo: Number(res.bajo_minimo || 0),
+    noEntregable: (rep.pledges || []).filter((p) => p.no_entregable).length,
+    piso: Number(rep.piso_centavos || 500) / 100,
+    pledges,
+  });
+
+  return { estado: 'enviado', a: ent.correo };
 }
 
 async function sendGameNotice(o) {
@@ -1293,6 +1490,25 @@ async function cobrarJuego(code, game_id, torneo, juego_no) {
      guarda, se reporta, y deja de bloquear algo que no tiene que ver
      con ella. El programa paga por las promesas que recogió, y las
      recogió igual. */
+  /* EL REPORTE DEL ENTRENADOR, antes de cualquier salida.
+
+     Va aquí arriba y no al final a propósito: abajo hay tres
+     `return` —sin marcador, avisos a medias, error de reporte— y en
+     los tres el entrenador quiere su copia IGUAL. De hecho la quiere
+     más: un juego con avisos a medias es justo el que hay que mirar.
+
+     Sólo se manda si algo salió en esta pasada. Volver a pulsar el
+     botón cuando ya estaba todo avisado no tiene nada nuevo que
+     contar, y un reporte repetido enseña a no abrirlos. */
+  if ((out.sent + out.corrected) > 0) {
+    try {
+      out.reporte = await reporteAlEntrenador(code, game_id);
+    } catch (e) {
+      console.error('game-notices reporte al entrenador:', e && e.message || e);
+      out.reporte = { estado: 'fallo', why: String(e && e.message || e) };
+    }
+  }
+
   if (corr.sin_marcador) {
     /* Sin marcador no hay nada que facturar. Si ya había una factura
        hecha, lo que importa es si sigue cuadrando — y eso lo contesta
