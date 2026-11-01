@@ -17,6 +17,8 @@
 //                              la plantilla tiene menos de ocho, y
 //                              nada si no se recogió ni una promesa
 //    POST /webhook             Stripe diciendo que una se pagó
+//    POST /coach-aprobado      la bienvenida al entrenador aprobado,
+//                              con su código (sólo un admin)
 //    POST /team-signup         el correo que te llega cuando un
 //                              programa pide campaña desde equipo.html
 //
@@ -1670,6 +1672,154 @@ app.post('/licencia', async (req, res) => {
   } catch (e) {
     console.error('/licencia:', e);
     return res.status(500).json({ error: String(e && e.message || e) });
+  }
+});
+
+// ── La bienvenida del entrenador aprobado ───────────────────────
+/* Aprobar daba un código en el admin y ahí se quedaba: había que
+   copiarlo y mandárselo al entrenador a mano, y entre una cosa y la
+   otra se perdía. Ahora el admin, en cuanto aprueba, llama aquí y al
+   entrenador le llega su código con todo lo que necesita para
+   empezar: dónde entra, dónde monta sus juegos, la guía y las
+   preguntas.
+
+   Sólo la puede pedir un admin: es un correo que sale a nuestro
+   nombre con un código que abre la página de un equipo.
+
+   No se sabe en qué idioma se inscribió el entrenador, así que el
+   correo va en los dos: español primero, inglés debajo. */
+function bienvenidaCoach(o) {
+  const e = escaparHtml;
+  const MI = 'https://cadapunto.com/mi-equipo.html';
+  const CONSTRUCTOR = 'https://marcadorpr.com/constructor.html?modo=temporada' +
+                      '&equipo=' + encodeURIComponent(o.equipo || '');
+  const FAQ = 'https://cadapunto.com/ayuda.html';
+
+  const boton = (href, txt) =>
+    `<a href="${href}" style="display:inline-block;background:#FF7A18;color:#101C2A;` +
+    `font-weight:800;text-decoration:none;padding:11px 18px;border-radius:999px;margin:4px 0">${txt}</a>`;
+
+  const T = {
+    es: {
+      hola: `Hola${o.coach ? ' ' + e(o.coach) : ''}:`,
+      bien: `<b>${e(o.equipo)}</b> ya está aprobado. Bienvenido a Cada Punto Cuenta y a tu nueva manera de recaudar: tus padrinos prometen por cada punto que anota tu equipo, y cada punto cuenta.`,
+      codT: 'Tu código para entrar',
+      codP: 'Es el nombre de tu equipo y los cuatro números que escogiste al inscribirte. No importan las mayúsculas, los acentos ni los espacios. Guárdalo, y no lo compartas fuera de tu cuerpo técnico: quien lo tenga entra a la página de tu equipo.',
+      pasosT: 'Cómo empezar',
+      p1: `<b>Entra a «Mi calendario»</b> con tu código. Es la página de tu equipo: ahí ves tus juegos, sacas el enlace de cada uno y pones el marcador.`,
+      p2: `<b>Monta tus juegos en el constructor de calendarios.</b> Desde «Mi calendario» se abre con tu código y tu equipo ya puestos. Escribes contra quién, qué día, la hora, la cancha y si ese juego lleva padrinos. Arriba tiene una guía, <b>«Cómo se usa»</b>, con cada paso.`,
+      p3: `<b>Regístralo y manda el enlace</b> al grupo de tu programa por WhatsApp. Cada juego con padrinos lleva su botón de prometer.`,
+      p4: `<b>Después del juego, pon el marcador.</b> A cada padrino le llega un aviso con lo que dio su promesa, y a ti tu reporte.`,
+      bMi: 'Abrir Mi calendario', bCons: 'Abrir el constructor', bFaq: 'Preguntas frecuentes',
+      dinero: 'Recuerda: Cada Punto Cuenta no cobra ni guarda pagos. El dinero lo cobra tu programa, directo de sus padrinos.',
+      dudas: `¿Dudas? Mira las <a href="${FAQ}">preguntas frecuentes</a>, o contesta este correo.`,
+    },
+    en: {
+      hola: `Hi${o.coach ? ' ' + e(o.coach) : ''},`,
+      bien: `<b>${e(o.equipo)}</b> is approved. Welcome to Cada Punto Cuenta and to your new way of fundraising: your padrinos pledge on every point your team scores, and every point counts.`,
+      codT: 'Your sign-in code',
+      codP: 'It is your team name and the four numbers you picked when you signed up. Capitals, accents and spaces do not matter. Keep it, and do not share it outside your coaching staff: whoever has it gets into your team’s page.',
+      pasosT: 'How to get started',
+      p1: `<b>Open “My schedule”</b> with your code. It is your team’s page: there you see your games, get each game’s link and post the score.`,
+      p2: `<b>Set up your games in the schedule builder.</b> From “My schedule” it opens with your code and team already filled in. You enter who you play, the day, the time, the court and whether that game has padrinos. At the top there is a guide, <b>“How to use it”</b>, with every step.`,
+      p3: `<b>Register it and send the link</b> to your program’s WhatsApp group. Every game with padrinos carries its pledge button.`,
+      p4: `<b>After the game, post the score.</b> Each padrino gets one notice with what their pledge came to, and you get your report.`,
+      bMi: 'Open My schedule', bCons: 'Open the schedule builder', bFaq: 'Frequently asked questions',
+      dinero: 'Remember: Cada Punto Cuenta does not take or hold payments. Your program collects the money directly from its padrinos.',
+      dudas: `Questions? See the <a href="${FAQ}">frequently asked questions</a>, or reply to this email.`,
+    },
+  };
+
+  const bloque = (L) => `
+      <p style="margin:0 0 12px">${L.hola}</p>
+      <p style="margin:0 0 18px">${L.bien}</p>
+      <div style="margin:0 0 20px;padding:16px 18px;border:1px solid #D7E0E8;border-left:4px solid #FF7A18;border-radius:8px">
+        <p style="margin:0 0 6px;font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#FF7A18">${L.codT}</p>
+        <p style="margin:0 0 8px;font-size:1.5rem;font-weight:900;letter-spacing:.04em">${e(o.codigo)}</p>
+        <p style="margin:0;color:#5A6B7C;font-size:.86rem;line-height:1.5">${L.codP}</p>
+      </div>
+      <p style="margin:0 0 8px;font-weight:800">${L.pasosT}</p>
+      <ol style="margin:0 0 14px;padding-left:1.2rem;line-height:1.55">
+        <li style="margin:0 0 8px">${L.p1}</li>
+        <li style="margin:0 0 8px">${L.p2}</li>
+        <li style="margin:0 0 8px">${L.p3}</li>
+        <li style="margin:0 0 8px">${L.p4}</li>
+      </ol>
+      <p style="margin:0 0 18px">
+        ${boton(MI, L.bMi)}<br>
+        ${boton(CONSTRUCTOR, L.bCons)}<br>
+        ${boton(FAQ, L.bFaq)}
+      </p>
+      <p style="margin:0 0 10px;color:#5A6B7C;font-size:.88rem">${L.dinero}</p>
+      <p style="margin:0">${L.dudas}</p>`;
+
+  const html = `
+    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#12202E;font-size:15px;line-height:1.6">
+      <p style="font-size:.72rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#0C6E8C;margin:0 0 6px">Cada Punto Cuenta</p>
+      ${bloque(T.es)}
+      <hr style="border:none;border-top:1px solid #D7E0E8;margin:26px 0">
+      ${bloque(T.en)}
+      <p style="color:#5A6B7C;font-size:.8rem;margin-top:26px">Cada Punto Cuenta · Gostar Digital LLC · Puerto Rico</p>
+    </div>`;
+
+  const plano = (L) => [
+    L.hola, '', L.bien, '', L.codT + ': ' + o.codigo, L.codP, '', L.pasosT,
+    '1. ' + L.p1, '2. ' + L.p2, '3. ' + L.p3, '4. ' + L.p4, '',
+    L.bMi + ': ' + MI, L.bCons + ': ' + CONSTRUCTOR, L.bFaq + ': ' + FAQ, '',
+    L.dinero, L.dudas,
+  ].join('\n').replace(/<[^>]+>/g, '');
+
+  const text = plano(T.es) + '\n\n---\n\n' + plano(T.en) +
+               '\n\nCada Punto Cuenta · Gostar Digital LLC · Puerto Rico\n';
+
+  const subject = `Aprobado: ${o.equipo} ya está en Cada Punto Cuenta · Approved`;
+  return { html, text, subject };
+}
+
+app.post('/coach-aprobado', async (req, res) => {
+  const admin = await requireAdmin(req);
+  if (!admin) return res.status(403).json({ error: 'Not authorized' });
+
+  const { correo, equipo, coach, codigo } = req.body || {};
+  if (!correo || !String(correo).includes('@') || !equipo || !codigo) {
+    return res.status(400).json({ error: 'correo, equipo and codigo are required' });
+  }
+
+  try {
+    if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
+    const m = bienvenidaCoach({
+      equipo: String(equipo).slice(0, 120),
+      coach:  String(coach || '').slice(0, 120),
+      codigo: String(codigo).slice(0, 80),
+    });
+
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: MAIL_FROM,
+        to: [String(correo).trim()],
+        /* Contestar le escribe a quien aprobó, que es quien puede
+           ayudarle: el entrenador nuevo tiene preguntas, y un buzón
+           de avisos no las contesta. */
+        reply_to: process.env.ADMIN_EMAIL || 'gostardigital@gmail.com',
+        subject: m.subject,
+        html: m.html,
+        text: m.text,
+      }),
+    });
+
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '');
+      throw new Error(`Resend refused the welcome (${r.status}): ${detail.slice(0, 200)}`);
+    }
+    return res.json({ ok: true, enviado: true });
+  } catch (e) {
+    console.error('/coach-aprobado:', e.message);
+    return res.status(502).json({ ok: false, error: e.message });
   }
 });
 
