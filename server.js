@@ -17,6 +17,7 @@
 //                              la plantilla tiene menos de ocho, y
 //                              nada si no se recogió ni una promesa
 //    POST /webhook             Stripe diciendo que una se pagó
+//    POST /promesa-aviso       el aviso al admin de una promesa nueva
 //    POST /coach-aprobado      la bienvenida al entrenador aprobado,
 //                              con su código (sólo un admin)
 //    POST /team-signup         el correo que te llega cuando un
@@ -1823,6 +1824,92 @@ app.post('/coach-aprobado', async (req, res) => {
   }
 });
 
+// ── Una promesa nueva, al admin ──────────────────────────────────
+/* Se prometía y no se enteraba nadie hasta abrir el admin. La llama
+   prometer.html en cuanto la promesa entra.
+
+   La puede llamar cualquiera, así que no se fía de nada de lo que le
+   mandan: con el juego y el correo BUSCA la promesa en la base, y
+   sólo avisa si existe y entró en los últimos diez minutos. Y una
+   promesa avisa una vez: llamarla dos veces no manda dos correos.
+
+   En texto plano, por lo mismo que el aviso de inscripción: con
+   diseño, Gmail lo manda a Promociones. */
+const PROMESAS_AVISADAS = new Set();
+
+app.post('/promesa-aviso', async (req, res) => {
+  const { game, email } = req.body || {};
+  if (!game || !email) return res.status(400).json({ error: 'game and email are required' });
+
+  try {
+    const { data: filas, error } = await supabase
+      .from('game_pledges')
+      .select('id, game_id, campaign_id, padrino_name, padrino_email, rate, cap, created_at')
+      .eq('game_id', String(game))
+      .ilike('padrino_email', String(email).trim())
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (error) throw new Error(error.message);
+
+    const p = filas && filas[0];
+    if (!p) return res.json({ ok: false, reason: 'no-existe' });
+
+    const edad = Date.now() - new Date(p.created_at).getTime();
+    if (!(edad >= 0 && edad < 10 * 60 * 1000)) return res.json({ ok: false, reason: 'vieja' });
+
+    const clave = `${p.id}:${p.rate}:${p.cap}`;
+    if (PROMESAS_AVISADAS.has(clave)) return res.json({ ok: true, ya: true });
+    PROMESAS_AVISADAS.add(clave);
+
+    const [{ data: g }, { data: c }, { count }] = await Promise.all([
+      supabase.from('games').select('opponent, plays_on, tip_time, venue')
+        .eq('id', p.game_id).maybeSingle(),
+      supabase.from('campaigns').select('name').eq('id', p.campaign_id).maybeSingle(),
+      supabase.from('game_pledges').select('id', { count: 'exact', head: true })
+        .eq('game_id', p.game_id),
+    ]);
+
+    const dinero = (n) => '$' + Number(n || 0).toFixed(2);
+    const programa = (c && c.name) || 'Un programa';
+    const rival = (g && g.opponent) || '?';
+    const text =
+      `Nueva promesa en Cada Punto Cuenta\n\n` +
+      `Padrino:    ${p.padrino_name || '—'}\n` +
+      `Correo:     ${p.padrino_email || '—'}\n` +
+      `Por punto:  ${dinero(p.rate)}\n` +
+      `Tope:       ${p.cap != null ? dinero(p.cap) : 'sin tope'}\n\n` +
+      `Juego:      ${programa} vs ${rival}\n` +
+      `Fecha:      ${(g && g.plays_on) || '—'}${g && g.tip_time ? ' · ' + g.tip_time : ''}\n` +
+      (g && g.venue ? `Cancha:     ${g.venue}\n` : '') +
+      `Promesas en este juego: ${count != null ? count : '—'}\n\n` +
+      `Detalle en el admin: https://cadapunto.com/admin.html\n`;
+
+    if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: MAIL_FROM,
+        to: [process.env.ADMIN_EMAIL || 'gostardigital@gmail.com'],
+        subject: `Nueva promesa: ${p.padrino_name || 'un padrino'} · ${programa} vs ${rival}`,
+        text,
+      }),
+    });
+    if (!r.ok) {
+      PROMESAS_AVISADAS.delete(clave);
+      const detail = await r.text().catch(() => '');
+      throw new Error(`Resend refused the pledge notice (${r.status}): ${detail.slice(0, 200)}`);
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('/promesa-aviso:', e.message);
+    return res.status(502).json({ ok: false, error: e.message });
+  }
+});
+
 // ── Un programa pidiendo campaña ─────────────────────────────────
 app.post('/team-signup', async (req, res) => {
   const { team, program, coach, email, phone, license } = req.body || {};
@@ -1938,7 +2025,11 @@ app.post('/team-signup', async (req, res) => {
         to: [to],
         reply_to: email,          // contestar le escribe al coach
         subject: `Nuevo equipo: ${team}`,
-        html, text,
+        /* SÓLO TEXTO. Con el HTML de colores y botones Gmail lo leía
+           como publicidad y lo mandaba a Promociones, donde una
+           solicitud se queda sin ver. Un aviso interno no necesita
+           diseño: el texto plano lo trata como correo de persona. */
+        text,
       }),
     });
 
