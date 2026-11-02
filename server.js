@@ -89,17 +89,51 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     return res.status(400).send(`Webhook Error: ${e.message}`);
   }
 
+  /* SÓLO LICENCIAS. Una factura pagada se busca por su id en las dos
+     tablas de licencias —la del evento y la del juego— y en ninguna
+     otra: aquí no se apunta jamás el pago de un padrino, y cualquier
+     otro evento de Stripe se contesta 200 sin tocar nada. Una factura
+     que no es nuestra tampoco toca nada.
+
+     REPETIDOS. Stripe puede mandar el mismo evento más de una vez.
+     Sólo se cambia una fila que todavía no está pagada ni anulada, así
+     que la segunda entrega no encuentra nada que cambiar: la fecha de
+     pago es la de la primera, y no se pisa.
+
+     ERRORES. Si la base falla se contesta 500 y Stripe lo reintenta.
+     Antes el error se perdía y se contestaba 200: el pago se quedaba
+     sin apuntar y nadie volvía a intentarlo. */
   if (evento.type === 'invoice.paid') {
     const inv = evento.data.object;
+    const ahora = new Date().toISOString();
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('licencias')
-        .update({ estado: 'pagada', paid_at: new Date().toISOString() })
+        .update({ estado: 'pagada', paid_at: ahora })
         .eq('stripe_invoice_id', inv.id)
         .neq('estado', 'anulada')
+        .neq('estado', 'pagada')
         .select('id');
-      if (data && data.length) console.log(`Licencia ${data[0].id} pagada (${inv.id})`);
-      else console.log(`invoice.paid sin licencia nuestra: ${inv.id}`);
+      if (error) throw new Error(error.message);
+
+      if (data && data.length) {
+        console.log(`Licencia ${data[0].id} pagada (${inv.id})`);
+      } else {
+        /* La licencia de UN juego. Antes esto acababa arriba y la
+           factura de un juego, pagada en Stripe, se quedaba en
+           'enviada' para siempre: el panel decía que el programa
+           debía lo que ya había pagado. */
+        const { data: dj, error: ej } = await supabase
+          .from('licencias_juego')
+          .update({ estado: 'pagada', pagada_el: ahora })
+          .eq('stripe_invoice_id', inv.id)
+          .neq('estado', 'anulada')
+          .neq('estado', 'pagada')
+          .select('id');
+        if (ej) throw new Error(ej.message);
+        if (dj && dj.length) console.log(`Licencia de juego ${dj[0].id} pagada (${inv.id})`);
+        else console.log(`invoice.paid ya apuntada o ajena: ${inv.id}`);
+      }
     } catch (e) {
       console.error('No pude marcar la licencia pagada:', e);
       return res.status(500).send('no se pudo apuntar el pago');
