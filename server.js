@@ -1692,8 +1692,6 @@ app.post('/licencia', async (req, res) => {
 function bienvenidaCoach(o) {
   const e = escaparHtml;
   const MI = 'https://cadapunto.com/mi-equipo.html';
-  const CONSTRUCTOR = 'https://marcadorpr.com/constructor.html?modo=temporada' +
-                      '&equipo=' + encodeURIComponent(o.equipo || '');
   const FAQ = 'https://cadapunto.com/ayuda.html';
 
   const boton = (href, txt) =>
@@ -1708,10 +1706,10 @@ function bienvenidaCoach(o) {
       codP: 'Es el nombre de tu equipo y los cuatro números que escogiste al inscribirte. No importan las mayúsculas, los acentos ni los espacios. Guárdalo, y no lo compartas fuera de tu cuerpo técnico: quien lo tenga entra a la página de tu equipo.',
       pasosT: 'Cómo empezar',
       p1: `<b>Entra a «Mi calendario»</b> con tu código. Es la página de tu equipo: ahí ves tus juegos, sacas el enlace de cada uno y pones el marcador.`,
-      p2: `<b>Monta tus juegos en el constructor de calendarios.</b> Desde «Mi calendario» se abre con tu código y tu equipo ya puestos. Escribes contra quién, qué día, la hora, la cancha y si ese juego lleva padrinos. Arriba tiene una guía, <b>«Cómo se usa»</b>, con cada paso.`,
-      p3: `<b>Regístralo y manda el enlace</b> al grupo de tu programa por WhatsApp. Cada juego con padrinos lleva su botón de prometer.`,
+      p2: `<b>Añade tus juegos ahí mismo, con «Añadir un juego».</b> Contra quién, qué día, la hora, la cancha y si ese juego lleva padrinos. Los juegos que ya tienes en calendario, uno a la vez.`,
+      p3: `<b>Manda el enlace del juego</b> al grupo de tu programa por WhatsApp. Cada juego con padrinos tiene su propio enlace para prometer.`,
       p4: `<b>Después del juego, pon el marcador.</b> A cada padrino le llega un aviso con lo que dio su promesa, y a ti tu reporte.`,
-      bMi: 'Abrir Mi calendario', bCons: 'Abrir el constructor', bFaq: 'Preguntas frecuentes',
+      bMi: 'Abrir Mi calendario', bFaq: 'Preguntas frecuentes',
       dinero: 'Recuerda: Cada Punto Cuenta no cobra ni guarda pagos. El dinero lo cobra tu programa, directo de sus padrinos.',
       dudas: `¿Dudas? Mira las <a href="${FAQ}">preguntas frecuentes</a>, o contesta este correo.`,
     },
@@ -1722,10 +1720,10 @@ function bienvenidaCoach(o) {
       codP: 'It is your team name and the four numbers you picked when you signed up. Capitals, accents and spaces do not matter. Keep it, and do not share it outside your coaching staff: whoever has it gets into your team’s page.',
       pasosT: 'How to get started',
       p1: `<b>Open “My schedule”</b> with your code. It is your team’s page: there you see your games, get each game’s link and post the score.`,
-      p2: `<b>Set up your games in the schedule builder.</b> From “My schedule” it opens with your code and team already filled in. You enter who you play, the day, the time, the court and whether that game has padrinos. At the top there is a guide, <b>“How to use it”</b>, with every step.`,
-      p3: `<b>Register it and send the link</b> to your program’s WhatsApp group. Every game with padrinos carries its pledge button.`,
+      p2: `<b>Add your games right there, with “Add a game”.</b> Who you play, the day, the time, the court and whether that game has padrinos. The games you already have scheduled, one at a time.`,
+      p3: `<b>Send the game’s link</b> to your program’s WhatsApp group. Every game with padrinos has its own pledge link.`,
       p4: `<b>After the game, post the score.</b> Each padrino gets one notice with what their pledge came to, and you get your report.`,
-      bMi: 'Open My schedule', bCons: 'Open the schedule builder', bFaq: 'Frequently asked questions',
+      bMi: 'Open My schedule', bFaq: 'Frequently asked questions',
       dinero: 'Remember: Cada Punto Cuenta does not take or hold payments. Your program collects the money directly from its padrinos.',
       dudas: `Questions? See the <a href="${FAQ}">frequently asked questions</a>, or reply to this email.`,
     },
@@ -1748,7 +1746,6 @@ function bienvenidaCoach(o) {
       </ol>
       <p style="margin:0 0 18px">
         ${boton(MI, L.bMi)}<br>
-        ${boton(CONSTRUCTOR, L.bCons)}<br>
         ${boton(FAQ, L.bFaq)}
       </p>
       <p style="margin:0 0 10px;color:#5A6B7C;font-size:.88rem">${L.dinero}</p>
@@ -1766,7 +1763,7 @@ function bienvenidaCoach(o) {
   const plano = (L) => [
     L.hola, '', L.bien, '', L.codT + ': ' + o.codigo, L.codP, '', L.pasosT,
     '1. ' + L.p1, '2. ' + L.p2, '3. ' + L.p3, '4. ' + L.p4, '',
-    L.bMi + ': ' + MI, L.bCons + ': ' + CONSTRUCTOR, L.bFaq + ': ' + FAQ, '',
+    L.bMi + ': ' + MI, L.bFaq + ': ' + FAQ, '',
     L.dinero, L.dudas,
   ].join('\n').replace(/<[^>]+>/g, '');
 
