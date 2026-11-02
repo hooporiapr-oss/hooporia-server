@@ -989,6 +989,7 @@ async function enviarAviso(o, partes) {
     headers: {
       'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
       'Content-Type': 'application/json',
+      ...(o.clave ? { 'Idempotency-Key': o.clave } : {}),
     },
     body: JSON.stringify({
       from: MAIL_FROM_HOOPORIA,
@@ -1000,6 +1001,19 @@ async function enviarAviso(o, partes) {
     }),
   });
 
+  /* 409 con llave: este aviso ya pasó por Resend.
+     · invalid_idempotent_request — ya se mandó con esta llave (el texto
+       cambió por algo menor, p. ej. cómo paga el programa): está
+       entregado, no se manda otro.
+     · concurrent_idempotent_requests — otra pasada lo está mandando
+       ahora mismo: temporal, se reintenta y para entonces está apuntado. */
+  if (r.status === 409 && o.clave) {
+    const t = await r.text().catch(() => '');
+    if (/invalid_idempotent_request/.test(t)) return { id: null, ya: true };
+    const e = new Error(`(409) ${t}`);
+    e.status = 409; e.permanente = false;
+    throw e;
+  }
   if (!r.ok) throw await falloDeCorreo(r);
   return r.json();
 }
@@ -1395,7 +1409,33 @@ async function facturarLicenciaJuego(game_id, rep, torneo, juego_no) {
    falla a la mitad, y lo mismo que impedía decirle que el número que
    le dimos estaba mal. Ahora quien decide es la base, promesa por
    promesa, y aquí sólo se manda lo que diga. */
+/* ── UNA PASADA POR JUEGO A LA VEZ ────────────────────────────────
+   Los avisos salen solos al publicar el marcador, y eso hace posible
+   que dos pasadas del mismo juego se crucen: un doble toque, un
+   reintento del teléfono con mala señal, o el marcador corregido
+   mientras la primera todavía estaba mandando. Cada padrino se apunta
+   como avisado DESPUÉS de que su correo sale, así que dos pasadas a
+   la vez podían escribirle dos veces.
+
+   Aquí se ponen en fila: la segunda espera a que acabe la primera y
+   entonces mira la base, que ya dice quién está avisado, y no manda
+   nada repetido. Una corrección que llega mientras tanto sí sale,
+   porque la cifra cambió. */
+const AVISOS_EN_CURSO = new Map();
+
 async function cobrarJuego(code, game_id, torneo, juego_no) {
+  const k = String(game_id);
+  const previa = AVISOS_EN_CURSO.get(k) || Promise.resolve();
+  const esta = previa.catch(() => {}).then(() => cobrarJuegoUnaVez(code, game_id, torneo, juego_no));
+  AVISOS_EN_CURSO.set(k, esta);
+  try {
+    return await esta;
+  } finally {
+    if (AVISOS_EN_CURSO.get(k) === esta) AVISOS_EN_CURSO.delete(k);
+  }
+}
+
+async function cobrarJuegoUnaVez(code, game_id, torneo, juego_no) {
   const { data: corr, error } = await supabase.rpc('juego_correcciones', {
     p_code: String(code), p_game: String(game_id),
   });
@@ -1471,6 +1511,13 @@ async function cobrarJuego(code, game_id, torneo, juego_no) {
       antes: antes,
       piso: piso,
       sinMarcador: !!corr.sin_marcador,
+      /* LA LLAVE DE ESTE AVISO, guardada fuera de este servidor.
+         Promesa + número de aviso + cifra: el mismo aviso intentado
+         dos veces —un reinicio, otra instancia, o la base que no
+         apuntó el envío— lleva la misma llave, y Resend no lo vuelve
+         a mandar en 24 horas. Una corrección es el aviso siguiente y
+         lleva otra cifra, así que lleva otra llave y sí sale. */
+      clave: `cpc-${p.id}-${Number(p.avisos_n || 0) + 1}-${debe.toFixed(2)}`,
     };
 
     try {
@@ -1481,9 +1528,14 @@ async function cobrarJuego(code, game_id, torneo, juego_no) {
          cifra que llevaba: lo que hay que recordar es lo que el
          padrino LEYÓ. Recalcularla aquí guardaría un número que nadie
          recibió si alguien tocó el marcador entre medias. */
-      await supabase.rpc('pledge_avisado', {
+      /* Si la base no apunta el envío, NO se cuenta como hecho: el
+         juego queda a medias, la licencia espera, y la próxima pasada
+         lo reintenta. La llave de arriba hace que ese reintento no le
+         llegue dos veces al padrino. */
+      const { error: eReg } = await supabase.rpc('pledge_avisado', {
         p_id: p.id, p_puntos: puntos, p_monto: debe,
       });
+      if (eReg) throw new Error('sent but not recorded: ' + eReg.message);
 
       if (esCorreccion) out.corrected++; else out.sent++;
 
