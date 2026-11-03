@@ -372,7 +372,7 @@ async function sendChallengeNotice(o) {
    apúntalo aquí mismo. */
 const PISO_CENTS = 500;
 
-app.post('/challenge-notices', async (req, res) => {
+app.post('/challenge-notices', frenoCodigos, async (req, res) => {
   const { code, challenge_id } = req.body || {};
   if (!code || !challenge_id) {
     return res.status(400).json({ error: 'code and challenge_id are required' });
@@ -1652,7 +1652,39 @@ async function cobrarJuegoUnaVez(code, game_id, torneo, juego_no) {
   return out;
 }
 
-app.post('/game-notices', async (req, res) => {
+/* ── CÓDIGOS EQUIVOCADOS, POR CONEXIÓN ─────────────────────────────
+   Tres rutas públicas reciben el código de un entrenador y lo pasan a
+   la base con la llave de servicio. La base no ve quién llama —ve a
+   este servidor— así que el freno por conexión va aquí: 10 códigos
+   equivocados (403) en 15 minutos desde una conexión, y esa conexión
+   espera. Nunca se frena a un equipo: el entrenador entra igual desde
+   la suya. Vive en memoria: un reinicio lo vacía, y eso está bien —sólo
+   frena, no guarda nada que importe. */
+const CODIGOS_MALOS = new Map();
+const FRENO_VENTANA = 15 * 60 * 1000, FRENO_MAX = 10;
+/* ONLY the address Cloudflare sets (Render sits behind Cloudflare,
+   which overwrites any copy the caller sends). X-Forwarded-For is NOT
+   read: Render passes the caller's own copy through, so a guesser
+   could invent a new address for every 10 tries. */
+function conexionDe(req) {
+  return String(req.headers['cf-connecting-ip'] || req.headers['true-client-ip'] || '').trim()
+      || (req.socket && req.socket.remoteAddress) || '?';
+}
+function frenoCodigos(req, res, next) {
+  const quien = conexionDe(req), ahora = Date.now();
+  const recientes = (CODIGOS_MALOS.get(quien) || []).filter(t => ahora - t < FRENO_VENTANA);
+  CODIGOS_MALOS.set(quien, recientes);
+  if (CODIGOS_MALOS.size > 5000) {
+    for (const [k, v] of CODIGOS_MALOS) if (!v.some(t => ahora - t < FRENO_VENTANA)) CODIGOS_MALOS.delete(k);
+  }
+  if (recientes.length >= FRENO_MAX) {
+    return res.status(429).json({ ok: false, error: 'too many wrong codes — wait 15 minutes' });
+  }
+  res.on('finish', () => { if (res.statusCode === 403) recientes.push(Date.now()); });
+  next();
+}
+
+app.post('/game-notices', frenoCodigos, async (req, res) => {
   const { code, game_id, torneo, juego_no } = req.body || {};
   if (!code || !game_id) {
     return res.status(400).json({ error: 'code and game_id are required' });
@@ -1671,7 +1703,7 @@ app.post('/game-notices', async (req, res) => {
    una segunda implementación del cobro acabaría discrepando con la
    primera el día que una de las dos cambie, y discrepar en dinero se
    descubre por un entrenador y no por una prueba. */
-app.post('/tournament-notices', async (req, res) => {
+app.post('/tournament-notices', frenoCodigos, async (req, res) => {
   const { code, torneo } = req.body || {};
   if (!code || !torneo) {
     return res.status(400).json({ error: 'code and torneo are required' });
@@ -1777,6 +1809,23 @@ app.post('/licencia', async (req, res) => {
    correo va en los dos: español primero, inglés debajo. */
 function bienvenidaCoach(o) {
   const e = escaparHtml;
+
+  /* DE DÓNDE SALEN LOS CUATRO NÚMEROS, dicho como pasó. Lo cuenta
+     aprobar (bw_approve_request → 'numeros'):
+       · escogidos — los que el entrenador puso al inscribirse
+       · asignados — no escogió (una inscripción de antes)
+     Sin dato se dice lo más seguro: el nombre y cuatro números. */
+  const QUE_ES = {
+    escogidos: 'Es el nombre de tu equipo y los cuatro números que escogiste al inscribirte.',
+    asignados: 'Es el nombre de tu equipo y cuatro números que te asignamos.',
+  };
+  const QUE_EN = {
+    escogidos: 'It is your team name and the four numbers you picked when you signed up.',
+    asignados: 'It is your team name and four numbers we assigned to you.',
+  };
+  if (!QUE_ES[o.numeros]) o = Object.assign({}, o, { numeros: 'sin_dato' });
+  QUE_ES.sin_dato = 'Es el nombre de tu equipo y cuatro números.';
+  QUE_EN.sin_dato = 'It is your team name and four numbers.';
   const MI = 'https://cadapunto.com/mi-equipo.html';
   const FAQ = 'https://cadapunto.com/ayuda.html';
 
@@ -1789,7 +1838,7 @@ function bienvenidaCoach(o) {
       hola: `Hola${o.coach ? ' ' + e(o.coach) : ''}:`,
       bien: `<b>${e(o.equipo)}</b> ya está aprobado. Bienvenido a Cada Punto Cuenta y a tu nueva manera de recaudar: tus padrinos prometen por cada punto que anota tu equipo, y cada punto cuenta.`,
       codT: 'Tu código para entrar',
-      codP: 'Es el nombre de tu equipo y los cuatro números que escogiste al inscribirte. No importan las mayúsculas, los acentos ni los espacios. Guárdalo, y no lo compartas fuera de tu cuerpo técnico: quien lo tenga entra a la página de tu equipo.',
+      codP: QUE_ES[o.numeros] + ' ' + 'No importan las mayúsculas, los acentos ni los espacios. Guárdalo, y no lo compartas fuera de tu cuerpo técnico: quien lo tenga entra a la página de tu equipo.',
       pasosT: 'Cómo empezar',
       p1: `<b>Entra a «Mi calendario»</b> con tu código. Es la página de tu equipo: ahí ves tus juegos, sacas el enlace de cada uno y pones el marcador.`,
       p2: `<b>Añade tus juegos ahí mismo, con «Añadir un juego».</b> Contra quién, qué día, la hora, la cancha y si ese juego lleva padrinos. Los juegos que ya tienes en calendario, uno a la vez.`,
@@ -1803,7 +1852,7 @@ function bienvenidaCoach(o) {
       hola: `Hi${o.coach ? ' ' + e(o.coach) : ''},`,
       bien: `<b>${e(o.equipo)}</b> is approved. Welcome to Cada Punto Cuenta and to your new way of fundraising: your padrinos pledge on every point your team scores, and every point counts.`,
       codT: 'Your sign-in code',
-      codP: 'It is your team name and the four numbers you picked when you signed up. Capitals, accents and spaces do not matter. Keep it, and do not share it outside your coaching staff: whoever has it gets into your team’s page.',
+      codP: QUE_EN[o.numeros] + ' ' + 'Capitals, accents and spaces do not matter. Keep it, and do not share it outside your coaching staff: whoever has it gets into your team’s page.',
       pasosT: 'How to get started',
       p1: `<b>Open “My schedule”</b> with your code. It is your team’s page: there you see your games, get each game’s link and post the score.`,
       p2: `<b>Add your games right there, with “Add a game”.</b> Who you play, the day, the time, the court and whether that game has padrinos. The games you already have scheduled, one at a time.`,
@@ -1864,7 +1913,7 @@ app.post('/coach-aprobado', async (req, res) => {
   const admin = await requireAdmin(req);
   if (!admin) return res.status(403).json({ error: 'Not authorized' });
 
-  const { correo, equipo, coach, codigo } = req.body || {};
+  const { correo, equipo, coach, codigo, numeros } = req.body || {};
   if (!correo || !String(correo).includes('@') || !equipo || !codigo) {
     return res.status(400).json({ error: 'correo, equipo and codigo are required' });
   }
@@ -1875,6 +1924,7 @@ app.post('/coach-aprobado', async (req, res) => {
       equipo: String(equipo).slice(0, 120),
       coach:  String(coach || '').slice(0, 120),
       codigo: String(codigo).slice(0, 80),
+      numeros: String(numeros || ''),
     });
 
     const r = await fetch('https://api.resend.com/emails', {
