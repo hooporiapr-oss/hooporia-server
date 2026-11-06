@@ -1823,6 +1823,11 @@ function bienvenidaCoach(o) {
     escogidos: 'It is your team name and the four numbers you picked when you signed up.',
     asignados: 'It is your team name and four numbers we assigned to you.',
   };
+  /* Nov 6, 2026: the code is two letters and four numbers (CP4827),
+     picked at signup, and it works on its own — no team name. */
+  QUE_ES.seis = 'Es el código que escogiste al inscribirte: dos letras y cuatro números.';
+  QUE_EN.seis = 'It is the code you picked when you signed up: two letters and four numbers.';
+  if (/^[A-Z]{2}[0-9]{4}$/.test(String(o.codigo || ''))) o = Object.assign({}, o, { numeros: 'seis' });
   if (!QUE_ES[o.numeros]) o = Object.assign({}, o, { numeros: 'sin_dato' });
   QUE_ES.sin_dato = 'Es el nombre de tu equipo y cuatro números.';
   QUE_EN.sin_dato = 'It is your team name and four numbers.';
@@ -1838,7 +1843,7 @@ function bienvenidaCoach(o) {
       hola: `Hola${o.coach ? ' ' + e(o.coach) : ''}:`,
       bien: `<b>${e(o.equipo)}</b> ya está aprobado. Bienvenido a Cada Punto Cuenta y a tu nueva manera de recaudar: tus padrinos prometen por cada punto que anota tu equipo, y cada punto cuenta.`,
       codT: 'Tu código para entrar',
-      codP: QUE_ES[o.numeros] + ' ' + 'No importan las mayúsculas, los acentos ni los espacios. Guárdalo, y no lo compartas fuera de tu cuerpo técnico: quien lo tenga entra a la página de tu equipo.',
+      codP: QUE_ES[o.numeros] + ' ' + 'No importan las mayúsculas ni los espacios. Guárdalo, y no lo compartas fuera de tu cuerpo técnico: quien lo tenga entra a la página de tu equipo.',
       pasosT: 'Cómo empezar',
       p1: `<b>Entra a «Admin»</b> con tu código. Es la página de tu equipo: ahí ves tus juegos, sacas el enlace de cada uno y pones el marcador.`,
       p2: `<b>Añade tus juegos ahí mismo, con «Añadir un juego».</b> Contra quién, qué día, la hora, la cancha y si ese juego lleva padrinos. Los juegos que ya tienes en calendario, uno a la vez.`,
@@ -1852,7 +1857,7 @@ function bienvenidaCoach(o) {
       hola: `Hi${o.coach ? ' ' + e(o.coach) : ''},`,
       bien: `<b>${e(o.equipo)}</b> is approved. Welcome to Cada Punto Cuenta and to your new way of fundraising: your padrinos pledge on every point your team scores, and every point counts.`,
       codT: 'Your sign-in code',
-      codP: QUE_EN[o.numeros] + ' ' + 'Capitals, accents and spaces do not matter. Keep it, and do not share it outside your coaching staff: whoever has it gets into your team’s page.',
+      codP: QUE_EN[o.numeros] + ' ' + 'Capitals and spaces do not matter. Keep it, and do not share it outside your coaching staff: whoever has it gets into your team’s page.',
       pasosT: 'How to get started',
       p1: `<b>Open “Admin”</b> with your code. It is your team’s page: there you see your games, get each game’s link and post the score.`,
       p2: `<b>Add your games right there, with “Add a game”.</b> Who you play, the day, the time, the court and whether that game has padrinos. The games you already have scheduled, one at a time.`,
