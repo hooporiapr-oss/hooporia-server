@@ -241,56 +241,59 @@ function avisoRetoTextos(lang, o) {
      programa, impresa en el correo que ya salía. */
   const comoPagar = String(o.payHow || '').trim();
 
+  /* EL TOTAL, SOLO Y EN GRANDE. En un teléfono el padrino busca una
+     cifra; antes estaba dentro de una frase larga. */
+  const total = (etq, n) =>
+    `<span style="display:block;background:#F4F6F8;border-radius:12px;padding:14px 16px">` +
+    `<span style="display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5A6B7C">${etq}</span> ` +
+    `<span style="display:block;font-size:30px;font-weight:800;line-height:1.2;color:#12202E">${money(n)}</span></span>`;
+  const gris = (t) => `<span style="color:#5A6B7C;font-size:13px">${t}</span>`;
+
   if (lang === 'es') {
     const cuenta = o.cap != null
-      ? `Prometiste ${money(o.rate)} por punto, que habrían sido ${money(o.bruto)} — ` +
-        `pero pusiste un tope de ${money(o.cap)}, así que tu promesa es de <b>${money(o.pledged)}</b>.`
-      : `Prometiste ${money(o.rate)} por punto, así que tu promesa es de <b>${money(o.pledged)}</b>.`;
+      ? `Prometiste ${money(o.rate)} por punto, que habrían sido ${money(o.bruto)}, ` +
+        `pero pusiste un tope de ${money(o.cap)}.`
+      : `Prometiste ${money(o.rate)} por punto.`;
+    /* Cómo pagar, cada cosa en su línea: a quién, cómo (en negrita, en
+       su propio renglón), a quién escribir. El contacto es el correo
+       del programa, sin nombre de persona. */
+    const pago = comoPagar
+      ? [`Ese dinero se lo pagas directamente a ${o.teamName}: <br><b>${comoPagar}</b>`]
+        .concat(o.contactEmail ? [`¿Algo no te cuadra? Escribe a ${o.contactEmail}.`] : [])
+      : [o.contactEmail
+          ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
+            `escribe a ${o.contactEmail}.`
+          : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo.`];
     return {
       subject: `${o.who} anotó ${o.points} puntos — tu promesa`,
       lines: [
         `Hola ${o.name},`,
         `<b>${o.who}</b> anotó <b>${o.points} puntos</b> en ${o.retoName}.`,
         cuenta,
-        comoPagar
-          ? `Ese dinero se lo pagas directamente a ${o.teamName}: <b>${comoPagar}</b>` +
-            (o.contactEmail
-              ? ` Si algo no te cuadra, escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}.`
-              : '') +
-            ` Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`
-          : (o.contactEmail
-              ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
-                `escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}. ` +
-                `Es quien lo recibe. Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`
-              : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo. ` +
-                `Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`),
-      ],
+        total('Tu promesa', o.pledged),
+      ].concat(pago, [gris(`Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto.`)]),
     };
   }
 
   const cuenta = o.cap != null
-    ? `You pledged ${money(o.rate)} a point, which would have come to ${money(o.bruto)} — ` +
-      `but you set a ${money(o.cap)} cap, so your pledge is <b>${money(o.pledged)}</b>.`
-    : `You pledged ${money(o.rate)} a point, so your pledge comes to <b>${money(o.pledged)}</b>.`;
+    ? `You pledged ${money(o.rate)} a point, which would have come to ${money(o.bruto)}, ` +
+      `but you set a ${money(o.cap)} cap.`
+    : `You pledged ${money(o.rate)} a point.`;
+  const pago = comoPagar
+    ? [`You pay that directly to ${o.teamName}: <br><b>${comoPagar}</b>`]
+      .concat(o.contactEmail ? [`Something does not look right? Write to ${o.contactEmail}.`] : [])
+    : [o.contactEmail
+        ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
+          `${o.contactEmail}.`
+        : `You pay that directly to ${o.teamName}, who will tell you how.`];
   return {
     subject: `${o.who} scored ${o.points} points — your pledge`,
     lines: [
       `Hi ${o.name},`,
       `<b>${o.who}</b> scored <b>${o.points} points</b> in ${o.retoName}.`,
       cuenta,
-      comoPagar
-        ? `You pay that directly to ${o.teamName}: <b>${comoPagar}</b>` +
-          (o.contactEmail
-            ? ` If something does not look right, write to ${o.contactName || o.teamName}: ${o.contactEmail}.`
-            : '') +
-          ` Cada Punto Cuenta takes no payments and will not write to you about this again.`
-        : (o.contactEmail
-            ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
-              `${o.contactName || o.teamName}: ${o.contactEmail}. They are the one who ` +
-              `receives it. Cada Punto Cuenta takes no payments and will not write to you about this again.`
-            : `You pay that directly to ${o.teamName}, who will tell you how. ` +
-              `Cada Punto Cuenta takes no payments and will not write to you about this again.`),
-    ],
+      total('Your pledge', o.pledged),
+    ].concat(pago, [gris(`Cada Punto Cuenta takes no payments and will not write to you about this again.`)]),
   };
 }
 
@@ -303,7 +306,7 @@ async function sendChallengeNotice(o) {
 
   const bloque = (t) => t.lines.map(l => `<p>${l}</p>`).join('\n      ');
   const html = `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#12202E;font-size:15px;line-height:1.6">
+    <div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:0 4px;color:#12202E;font-size:16px;line-height:1.55">
       ${partes.map(bloque).join(
         '\n      <hr style="border:none;border-top:1px solid #D7E0E8;margin:22px 0">\n      ')}
       <p style="color:#5A6B7C;font-size:.8rem;margin-top:22px">
@@ -783,62 +786,59 @@ function avisoJuegoTextos(lang, o) {
   const marcador = o.oppPoints != null
     ? `${o.points}–${o.oppPoints}` : String(o.points);
 
+  /* EL TOTAL, SOLO Y EN GRANDE. En un teléfono el padrino busca una
+     cifra; antes estaba dentro de una frase larga. */
+  const total = (etq, n) =>
+    `<span style="display:block;background:#F4F6F8;border-radius:12px;padding:14px 16px">` +
+    `<span style="display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5A6B7C">${etq}</span> ` +
+    `<span style="display:block;font-size:30px;font-weight:800;line-height:1.2;color:#12202E">${money(n)}</span></span>`;
+  const gris = (t) => `<span style="color:#5A6B7C;font-size:13px">${t}</span>`;
+
   if (lang === 'es') {
     const cuenta = o.cap != null
-      ? `Prometiste ${money(o.rate)} por punto, que habrían sido ${money(o.bruto)} — ` +
-        `pero pusiste un tope de ${money(o.cap)}, así que tu promesa es de <b>${money(o.pledged)}</b>.`
-      : `Prometiste ${money(o.rate)} por punto, así que tu promesa es de <b>${money(o.pledged)}</b>.`;
+      ? `Prometiste ${money(o.rate)} por punto, que habrían sido ${money(o.bruto)}, ` +
+        `pero pusiste un tope de ${money(o.cap)}.`
+      : `Prometiste ${money(o.rate)} por punto.`;
+    /* Cómo pagar, cada cosa en su línea: a quién, cómo (en negrita, en
+       su propio renglón), a quién escribir. El contacto es el correo
+       del programa, sin nombre de persona. */
+    const pago = comoPagar
+      ? [`Ese dinero se lo pagas directamente a ${o.teamName}: <br><b>${comoPagar}</b>`]
+        .concat(o.contactEmail ? [`¿Algo no te cuadra? Escribe a ${o.contactEmail}.`] : [])
+      : [o.contactEmail
+          ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
+            `escribe a ${o.contactEmail}.`
+          : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo.`];
     return {
       subject: `${o.teamName} anotó ${o.points} — tu promesa`,
       lines: [
         `Hola ${o.name},`,
         `<b>${o.teamName}</b> anotó <b>${o.points} puntos</b> ${o.label} (${marcador}).`,
         cuenta,
-        comoPagar
-          ? `Ese dinero se lo pagas directamente a ${o.teamName}: <b>${comoPagar}</b>` +
-            (o.contactEmail
-              ? ` Si algo no te cuadra, escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}.`
-              : '') +
-            ` Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto, ` +
-              `salvo que el marcador se corrija.`
-          : (o.contactEmail
-              ? `Ese dinero se lo pagas directamente a ${o.teamName}. Si no sabes cómo, ` +
-                `escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}. ` +
-                `Es quien lo recibe. Cada Punto Cuenta no cobra pagos y no te va a escribir ` +
-                `otra vez por esto, salvo que el marcador se corrija.`
-              : `Ese dinero se lo pagas directamente a ${o.teamName}. Ellos te dirán cómo. ` +
-                `Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto, ` +
-                `salvo que el marcador se corrija.`),
-      ],
+        total('Tu promesa', o.pledged),
+      ].concat(pago, [gris(`Cada Punto Cuenta no cobra pagos y no te va a escribir otra vez por esto, salvo que el marcador se corrija.`)]),
     };
   }
 
   const cuenta = o.cap != null
-    ? `You pledged ${money(o.rate)} a point, which would have come to ${money(o.bruto)} — ` +
-      `but you set a ${money(o.cap)} cap, so your pledge is <b>${money(o.pledged)}</b>.`
-    : `You pledged ${money(o.rate)} a point, so your pledge comes to <b>${money(o.pledged)}</b>.`;
+    ? `You pledged ${money(o.rate)} a point, which would have come to ${money(o.bruto)}, ` +
+      `but you set a ${money(o.cap)} cap.`
+    : `You pledged ${money(o.rate)} a point.`;
+  const pago = comoPagar
+    ? [`You pay that directly to ${o.teamName}: <br><b>${comoPagar}</b>`]
+      .concat(o.contactEmail ? [`Something does not look right? Write to ${o.contactEmail}.`] : [])
+    : [o.contactEmail
+        ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
+          `${o.contactEmail}.`
+        : `You pay that directly to ${o.teamName}. They will tell you how.`];
   return {
     subject: `${o.teamName} scored ${o.points} — your pledge`,
     lines: [
       `Hi ${o.name},`,
       `<b>${o.teamName}</b> scored <b>${o.points} points</b> ${o.label} (${marcador}).`,
       cuenta,
-      comoPagar
-        ? `You pay that directly to ${o.teamName}: <b>${comoPagar}</b>` +
-          (o.contactEmail
-            ? ` If something does not look right, write to ${o.contactName || o.teamName}: ${o.contactEmail}.`
-            : '') +
-          ` Cada Punto Cuenta does not take payments and will not write to you about this ` +
-            `again, unless the final score is corrected.`
-        : (o.contactEmail
-            ? `You pay that directly to ${o.teamName}. If you are not sure how, write to ` +
-              `${o.contactName || o.teamName}: ${o.contactEmail}. They are the ones who receive it. ` +
-              `Cada Punto Cuenta does not take payments and will not write to you about ` +
-              `this again, unless the final score is corrected.`
-            : `You pay that directly to ${o.teamName}. They will tell you how. ` +
-              `Cada Punto Cuenta does not take payments and will not write to you about ` +
-              `this again, unless the final score is corrected.`),
-    ],
+      total('Your pledge', o.pledged),
+    ].concat(pago, [gris(`Cada Punto Cuenta does not take payments and will not write to you about this again, unless the final score is corrected.`)]),
   };
 }
 
@@ -902,7 +902,7 @@ function correccionJuegoTextos(lang, o) {
           ? `Ese dinero se lo pagas directamente a ${o.teamName}: <b>${comoPagar}</b>`
           : `Ese dinero se lo pagas directamente a ${o.teamName}.`) +
         (o.contactEmail
-          ? ` Si algo no te cuadra, escríbele a ${o.contactName || o.teamName}: ${o.contactEmail}.`
+          ? ` ¿Algo no te cuadra? Escribe a ${o.contactEmail}.`
           : '');
 
     return {
@@ -940,8 +940,7 @@ function correccionJuegoTextos(lang, o) {
         ? `You pay that directly to ${o.teamName}: <b>${comoPagar}</b>`
         : `You pay that directly to ${o.teamName}.`) +
       (o.contactEmail
-        ? ` If something does not look right, write to ${o.contactName || o.teamName}: ` +
-          `${o.contactEmail}.`
+        ? ` Something does not look right? Write to ${o.contactEmail}.`
         : '');
 
   return {
@@ -970,7 +969,7 @@ async function enviarAviso(o, partes) {
   const bloque = (t) => t.lines.map(l => `<p>${l}</p>`).join('\n      ');
 
   const html = `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#12202E;font-size:15px;line-height:1.6">
+    <div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:0 4px;color:#12202E;font-size:16px;line-height:1.55">
       ${partes.map(bloque).join(
         '\n      <hr style="border:none;border-top:1px solid #D7E0E8;margin:22px 0">\n      ')}
       <p style="color:#5A6B7C;font-size:.8rem;margin-top:22px">
