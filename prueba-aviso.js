@@ -213,7 +213,7 @@ function reiniciar() {
      'el correo lleva el del entrenador que mandó los avisos');
   eq(/nomando@equipo\.invalid/.test(abuela.html), false,
      'y no el del otro entrenador de la misma campaña');
-  eq(/Coach Burgos/.test(abuela.html), true, 'con su nombre, no sólo la dirección');
+  eq(/Coach Burgos/.test(abuela.html), false, 'el correo del programa, sin nombre de persona');
   eq(abuela.reply_to, 'burgos@equipo.invalid',
      'y el Responder le llega a él, no a Gostar Digital');
   eq(/burgos@equipo\.invalid/.test(tio.html), true, 'lo mismo en el correo en inglés');
