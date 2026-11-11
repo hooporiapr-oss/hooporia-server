@@ -96,6 +96,19 @@ function limpiar(x) {
   };
 }
 
+/* Why Anthropic said no, as one short word the page can explain to the
+   organizer — so nobody has to open the Render logs to find out. Never
+   includes the key or anything secret. */
+function motivo(status, body) {
+  if (/credit balance|billing|purchase credits/i.test(body)) return 'sin_credito';
+  if (status === 401 || /authentication|invalid x-api-key/i.test(body)) return 'clave';
+  if (status === 403) return 'permiso';
+  if (status === 404 || /model/i.test(body) && status === 400) return 'modelo';
+  if (status === 429 || status === 529 || status >= 500) return 'ocupado';
+  if (status === 413 || /too large|image/i.test(body)) return 'foto';
+  return 'otro_' + status;
+}
+
 async function claudeLee(imagen, tipo) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -109,7 +122,12 @@ async function claudeLee(imagen, tipo) {
       ] }]
     })
   });
-  if (!r.ok) throw new Error('anthropic ' + r.status + ': ' + (await r.text().catch(() => '')).slice(0, 200));
+  if (!r.ok) {
+    const body = await r.text().catch(() => '');
+    const err = new Error('anthropic ' + r.status + ': ' + body.slice(0, 200));
+    err.motivo = motivo(r.status, body);
+    throw err;
+  }
   const j = await r.json();
   const uso = (j.content || []).find((c) => c.type === 'tool_use');
   if (!uso) throw new Error('no tool_use in the answer');
@@ -145,9 +163,10 @@ module.exports = function hojas(opts) {
       return res.json({ ok: true, hoja: limpiar(crudo || {}) });
     } catch (e) {
       console.error('/hoja/leer:', e.message);
-      return res.status(502).json({ ok: false, error: 'ai' });
+      return res.status(502).json({ ok: false, error: 'ai', motivo: e.motivo || 'red' });
     }
   });
   return r;
 };
 module.exports.limpiar = limpiar;
+module.exports.motivo = motivo;
