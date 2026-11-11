@@ -143,6 +143,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   return res.status(200).send('ok');
 });
 
+/* La hoja de anotación en papel → foto → Claude la lee (hojas.js).
+   Va ANTES del express.json() de abajo: una foto pesa más de su
+   límite de 100 kB, así que esta ruta lee su propio cuerpo. */
+app.use('/hoja', require('./hojas.js')({ base: supabase }));
+
 app.use(express.json());
 
 /* De dónde se aceptan llamadas. Sólo el sitio; nada más tiene por
