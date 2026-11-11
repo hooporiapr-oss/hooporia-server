@@ -62,7 +62,8 @@ const INSTRUCCION =
   'If points are not written as a number, count them from the marks in that row. ' +
   'Read points per period from the running-score columns (points in that period, not the running total). ' +
   'Read only what is on the sheet. Never invent a player, a name or a number: if something cannot be read, use null and add a note to dudas. ' +
-  'If the players\' points do not add up to the team total, say so in dudas.';
+  'If the players\' points do not add up to the team total, say so in dudas. ' +
+  'Answer only by calling the box_score tool, once, with everything you read.';
 
 function limite() {
   const golpes = new Map();
@@ -103,7 +104,7 @@ function motivo(status, body) {
   if (/credit balance|billing|purchase credits/i.test(body)) return 'sin_credito';
   if (status === 401 || /authentication|invalid x-api-key/i.test(body)) return 'clave';
   if (status === 403) return 'permiso';
-  if (status === 404 || /model/i.test(body) && status === 400) return 'modelo';
+  if (status === 404 || /not_found_error/.test(body)) return 'modelo';
   if (status === 429 || status === 529 || status >= 500) return 'ocupado';
   if (status === 413 || /too large|image/i.test(body)) return 'foto';
   return 'otro_' + status;
@@ -114,8 +115,11 @@ async function claudeLee(imagen, tipo) {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: MODELO(), max_tokens: 4000,
-      tools: [HERRAMIENTA], tool_choice: { type: 'tool', name: 'box_score' },
+      /* tool_choice stays 'auto': current models think before answering, and the
+         API refuses a forced tool together with thinking. The instruction asks
+         for the tool instead. */
+      model: MODELO(), max_tokens: 16000,
+      tools: [HERRAMIENTA], tool_choice: { type: 'auto' },
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: tipo, data: imagen } },
         { type: 'text', text: INSTRUCCION }
@@ -126,11 +130,13 @@ async function claudeLee(imagen, tipo) {
     const body = await r.text().catch(() => '');
     const err = new Error('anthropic ' + r.status + ': ' + body.slice(0, 200));
     err.motivo = motivo(r.status, body);
+    /* Anthropic's own one-line reason (it never contains the key), for the page */
+    try { err.detalle = String(JSON.parse(body).error.message || '').slice(0, 160) } catch (x) { err.detalle = '' }
     throw err;
   }
   const j = await r.json();
   const uso = (j.content || []).find((c) => c.type === 'tool_use');
-  if (!uso) throw new Error('no tool_use in the answer');
+  if (!uso) { const e = new Error('no tool_use in the answer'); e.motivo = 'sin_respuesta'; throw e }
   return uso.input;
 }
 
@@ -163,7 +169,7 @@ module.exports = function hojas(opts) {
       return res.json({ ok: true, hoja: limpiar(crudo || {}) });
     } catch (e) {
       console.error('/hoja/leer:', e.message);
-      return res.status(502).json({ ok: false, error: 'ai', motivo: e.motivo || 'red' });
+      return res.status(502).json({ ok: false, error: 'ai', motivo: e.motivo || 'red', detalle: e.detalle || '' });
     }
   });
   return r;
