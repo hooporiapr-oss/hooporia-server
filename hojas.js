@@ -11,7 +11,8 @@
 const express = require('express');
 
 const ORIGEN = /^https:\/\/(www\.)?(marcadorpr|cadapunto|hooporia)\.com$/;
-const MODELO = () => process.env.HOJA_MODEL || 'claude-sonnet-5-5';
+/* Opus reads handwriting best; a photo still costs only a few cents. HOJA_MODEL overrides. */
+const MODELO = () => process.env.HOJA_MODEL || 'claude-opus-5-5';
 const TIPOS = ['image/jpeg', 'image/png', 'image/webp'];
 
 const equipo = {
@@ -57,12 +58,22 @@ const HERRAMIENTA = {
 
 const INSTRUCCION =
   'This is a photo of a paper basketball scoresheet from a youth league in Puerto Rico. ' +
-  'Team A is the team listed first (left or top), team B the second. ' +
-  'For each team read every player row: jersey number, name, points and personal fouls. ' +
-  'If points are not written as a number, count them from the marks in that row. ' +
-  'Read points per period from the running-score columns (points in that period, not the running total). ' +
-  'Read only what is on the sheet. Never invent a player, a name or a number: if something cannot be read, use null and add a note to dudas. ' +
-  'If the players\' points do not add up to the team total, say so in dudas. ' +
+  'Team A is the team listed first (left or top), team B the second.\n\n' +
+  'HOW THESE SHEETS ARE FILLED IN — use this to read them:\n' +
+  '- Each player row has one box per period (1st, 2nd, 3rd, 4th, then overtime). In a box the scorer marks every basket: ' +
+  'an X for 2 points, a 3 for a three-pointer, and a dot or small circle for each made free throw (1 point). ' +
+  'After the marks the scorer usually writes that period\'s points after a dash, for example "XX-4", "XXX-6", "3X•X-8", "X-2", "3-3". ' +
+  'Use the number after the dash as the player\'s points in that period; if there is no number, count the marks. An empty box is 0.\n' +
+  '- A player\'s points for the game are the sum of their periods. A TP (total points) column, when filled, should match that sum; ' +
+  'if a TP number is hard to place on a row, trust the sum of the period boxes.\n' +
+  '- Personal fouls are marked in the small foul boxes beside the name (numbers 1 to 5 crossed out or ticked). Count the marked ones.\n' +
+  '- Large circled numbers near each period column are usually the team\'s points in that period. The running score (a row of numbers crossed out in order) ' +
+  'ends at the team\'s final score. A team\'s points in a period should equal the sum of its players\' points in that period: ' +
+  'when they disagree, give the players\' sum and note it in dudas.\n' +
+  '- If no final score is written, the team total is the sum of its players\' points.\n' +
+  '- A player marked "NO" or with an empty row did not play: include them with 0 points only if they are listed with a name.\n\n' +
+  'Read every player row: jersey number, name, points and personal fouls. Periods are points scored in that period, not running totals. ' +
+  'Read only what is on the sheet. Never invent a player, a name or a number: if something truly cannot be read, use null and add a short note to dudas (in Spanish). ' +
   'Answer only by calling the box_score tool, once, with everything you read.';
 
 function limite() {
