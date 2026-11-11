@@ -148,6 +148,29 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
    límite de 100 kB, así que esta ruta lee su propio cuerpo. */
 app.use('/hoja', require('./hojas.js')({ base: supabase }));
 
+/* "Avísame cada lunes" on cognogym.com (avisos.js). Before express.json()
+   and the CORS list below for the same reason: it parses its own body,
+   and cognogym.com is allowed on this route only. */
+const AVISOS_A = process.env.AVISOS_TO || 'cognogym@gmail.com';
+app.use('/avisos', require('./avisos.js')({ base: supabase, avisar: async (d) => {
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  /* same verified sending address as the rest of the server, under the gym's name */
+  const desde = 'Cognitivo Gym <' + (MAIL_FROM_HOOPORIA.match(/<([^>]+)>/) || [, MAIL_FROM_HOOPORIA])[1] + '>';
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: desde, to: [AVISOS_A],
+      subject: 'Nuevo en la lista de cognogym.com: ' + d.contacto,
+      html: '<p><b>' + esc(d.contacto) + '</b> pidió que le avisen cada lunes.</p>' +
+            (d.reto ? '<p>Estaba mirando: ' + esc(d.reto) + '</p>' : '') +
+            (d.total != null ? '<p>Ya son <b>' + esc(d.total) + '</b> en la lista.</p>' : '')
+    })
+  });
+  if (!r.ok) throw new Error('resend ' + r.status + ': ' + (await r.text()).slice(0, 200));
+} }));
+
 app.use(express.json());
 
 /* De dónde se aceptan llamadas. Sólo el sitio; nada más tiene por
