@@ -151,6 +151,10 @@ app.use('/hoja', require('./hojas.js')({ base: supabase }));
 /* "Avísame cada lunes" on cognogym.com (avisos.js). Before express.json()
    and the CORS list below for the same reason: it parses its own body,
    and cognogym.com is allowed on this route only. */
+/* El Debate del Día on cognogym.com/debate (debate.js): today's question,
+   anonymous votes and the archive. Its own parser and CORS, like /avisos. */
+app.use('/debate', require('./debate.js')({ base: supabase }));
+
 const AVISOS_A = process.env.AVISOS_TO || 'cognogym@gmail.com';
 app.use('/avisos', require('./avisos.js')({ base: supabase, avisar: async (d) => {
   if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set');
