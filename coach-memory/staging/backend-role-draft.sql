@@ -41,9 +41,14 @@ begin
  return query select * from coach_memory_private.read_memory(actor,target_membership,page_size,before_time,before_id);
 end $$;
 revoke all on function coach_memory_private.server_save_plan(uuid,uuid,bigint,uuid,date,uuid,jsonb),coach_memory_private.server_read_memory(uuid,uuid,bigint,uuid,integer,timestamptz,uuid) from public,anon,authenticated;
+-- The managed local Supabase installer is not a superuser. Allow only
+-- the current installer to assume the newly created executor during ownership transfer.
+-- This role is new in this transaction; the grant is removed before commit.
+grant coach_memory_executor to current_user;
 grant create on schema coach_memory_private to coach_memory_executor;
 alter function coach_memory_private.server_save_plan(uuid,uuid,bigint,uuid,date,uuid,jsonb) owner to coach_memory_executor;
 alter function coach_memory_private.server_read_memory(uuid,uuid,bigint,uuid,integer,timestamptz,uuid) owner to coach_memory_executor;
 revoke create on schema coach_memory_private from coach_memory_executor;
+revoke coach_memory_executor from current_user;
 grant execute on function coach_memory_private.server_save_plan(uuid,uuid,bigint,uuid,date,uuid,jsonb),coach_memory_private.server_read_memory(uuid,uuid,bigint,uuid,integer,timestamptz,uuid) to coach_memory_backend;
 commit;
