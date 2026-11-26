@@ -35,6 +35,17 @@ jobs:
             echo "Applying $f"
             psql -X -v ON_ERROR_STOP=1 -f "coach-memory/staging/$f.sql"
           done
+          # Local container only: managed auth schema ownership differs from the installer.
+          # Apply only the previously intended narrow privileges, never broad role membership.
+          mapfile -t db_containers < <(docker ps --format '{{.Names}}' | grep '^supabase_db_')
+          test "${#db_containers[@]}" -eq 1
+          docker exec -i "${db_containers[0]}" psql -X -U supabase_admin -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          grant usage on schema auth to coach_memory_executor;
+          grant select(id,is_anonymous) on auth.users to coach_memory_executor;
+          grant select(id,user_id,not_after) on auth.sessions to coach_memory_executor;
+          commit;
+          SQL
           node coach-memory/staging/real-auth.test.cjs "$RUNNER_TEMP/cm-local.json"
       - name: Collect sanitized local database crash diagnostics
         if: failure()
