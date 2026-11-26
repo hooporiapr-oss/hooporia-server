@@ -5,8 +5,8 @@ const actor='10000000-0000-4000-8000-000000000001',session='10000000-0000-4000-8
 const now=1700000000000,origin='https://example.invalid';
 const claims={sub:actor,session_id:session,exp:now/1000+600,role:'authenticated',is_anonymous:false,iss:origin+'/auth/v1'};
 const token=(patch={})=>'Bearer e30.'+Buffer.from(JSON.stringify({...claims,...patch})).toString('base64url')+'.synthetic';
-let queries=[],allowed=true,http=200,anonymous=false,dbError=null;
-const svc=createMemoryService({supabaseUrl:origin,publishableKey:'synthetic-only',now:()=>now,fetchImpl:async(url,opts)=>{assert.equal(String(url),origin+'/auth/v1/user');assert.equal(opts.redirect,'error');return {ok:http===200,status:http,json:async()=>({id:actor,is_anonymous:anonymous})}},withTransaction:async fn=>fn({query:async(sql,args)=>{queries.push({sql,args});if(!allowed)throw Object.assign(new Error('session denied'),{code:'28000'});assert.match(sql,/coach_memory_private\.server_(save_plan|read_memory|submit_bpm|confirm_bpm|save_bpm_plan)/);if(dbError)throw Object.assign(new Error('synthetic'),{code:dbError});return {rows:[{id:request}]}}})});
+let queries=[],allowed=true,http=200,anonymous=false,dbError=null,prescription=null;
+const svc=createMemoryService({supabaseUrl:origin,publishableKey:'synthetic-only',now:()=>now,fetchImpl:async(url,opts)=>{assert.equal(String(url),origin+'/auth/v1/user');assert.equal(opts.redirect,'error');return {ok:http===200,status:http,json:async()=>({id:actor,is_anonymous:anonymous})}},withTransaction:async fn=>fn({query:async(sql,args)=>{queries.push({sql,args});if(!allowed)throw Object.assign(new Error('session denied'),{code:'28000'});assert.match(sql,/coach_memory_private\.server_(save_plan|read_memory|submit_bpm|confirm_bpm|save_bpm_plan|get_bpm_plan)/);if(dbError)throw Object.assign(new Error('synthetic'),{code:dbError});return {rows:sql.includes('server_get_bpm_plan(')?[{prescription}]:[{id:request}]}}})});
 const read={action:'read',membership_id:membership};
 const save={action:'save_plan',membership_id:membership,request_id:request,effective_on:'2026-11-25',plan:{stage:'5-6',bpm:null,days:3,stations:['recall']}};
 async function rejects(auth,input,status){await assert.rejects(svc.run(auth,input),e=>e.status===status)}
@@ -31,6 +31,22 @@ for(const input of [{...submit,bpm:0},{...submit,bpm:84.5},{...submit,measured_a
 assert.equal(queries.length,before);
 allowed=false;await rejects(token(),submit,401);allowed=true;
 dbError='42501';await rejects(token(),confirm,403);dbError='22023';await rejects(token(),bound,400);dbError=null;
+const lookup={action:'get_bpm_plan',membership_id:membership,plan_id:request,station:'recall'};
+const valid={plan_id:request,membership_id:membership,confirmation_id:confirmation,bpm:84,station:'recall',effective_on:'2026-11-25',stage:'11-12'};
+prescription={...valid,unneeded:'not returned'};
+assert.deepEqual(await svc.run(token(),lookup),{prescription:valid});
+assert.match(queries.at(-1).sql,/server_get_bpm_plan\(/);
+assert.deepEqual(queries.at(-1).args,[actor,session,claims.exp,membership,request,'recall']);
+const prior=queries.length;
+for(const input of [{...lookup,plan_id:'bad'},{...lookup,station:'unknown'},{...lookup,bpm:99},{...lookup,actor:membership},{...lookup,confirmation_id:confirmation}])await rejects(token(),input,400);
+await rejects(token({exp:now/1000-1}),lookup,401);
+assert.equal(queries.length,prior);
+for(const patch of [{membership_id:actor},{plan_id:actor},{station:'replay'},{confirmation_id:null},{bpm:0},{bpm:'84'},{stage:'unknown'},{effective_on:'invalid'}]){
+ prescription={...valid,...patch};await rejects(token(),lookup,503);
+}
+prescription=null;await rejects(token(),lookup,503);prescription=valid;
+for(const [code,status] of [['28000',401],['42501',403],['22023',400],['XX000',503]]){dbError=code;await rejects(token(),lookup,status)}dbError=null;
+console.log('PASS: exact lookup routing, bound response identity, data minimization, input validation and denial mapping');
 console.log('PASS: personal BPM operation routing, authenticated parameter binding, invalid input and override rejection');
 console.log('PASS: mocked authentication, session denial, actor binding, input validation, SQL error mapping');
 })().catch(e=>{console.error(e);process.exitCode=1});
