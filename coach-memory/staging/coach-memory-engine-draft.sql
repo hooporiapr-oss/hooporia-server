@@ -17,10 +17,11 @@ begin
   if jsonb_typeof(p->'days')<>'number' or coalesce(p->>'days','') not in ('2','3','4','5') then return false; end if;
   if p->'bpm'<>'null'::jsonb and (jsonb_typeof(p->'bpm')<>'number' or coalesce(p->>'bpm','') !~ '^[0-9]{1,4}$' or (p->>'bpm')::numeric not between 1 and 1000) then return false; end if;
   if jsonb_typeof(p->'stations')<>'array' then return false; end if;
-  if jsonb_array_length(p->'stations') not between 1 and 7 then return false; end if;
+  if jsonb_array_length(p->'stations') not between 1 and 8 then return false; end if;
   for v in select value from jsonb_array_elements(p->'stations') loop
-   if v not in ('"recall"'::jsonb,'"recognition"'::jsonb,'"replay"'::jsonb,'"fortress"'::jsonb,'"zn"'::jsonb,'"zr"'::jsonb,'"enc"'::jsonb) then return false; end if;
-   if p->'bpm'='null'::jsonb and v in ('"zn"'::jsonb,'"zr"'::jsonb,'"enc"'::jsonb) then return false; end if;
+   if v not in ('"recall"'::jsonb,'"recognition"'::jsonb,'"replay"'::jsonb,'"fortress"'::jsonb,'"zn"'::jsonb,'"zr"'::jsonb,'"enc"'::jsonb,'"ritnome"'::jsonb) then return false; end if;
+   if p->'bpm'='null'::jsonb and v in ('"zn"'::jsonb,'"zr"'::jsonb,'"enc"'::jsonb,'"ritnome"'::jsonb) then return false; end if;
+   if v='"ritnome"'::jsonb and (p->>'stage' in ('5-6','7-8') or coalesce((p->>'bpm')::numeric,0) not between 40 and 200) then return false; end if;
   end loop;
   return true;
  when 'goal' then
