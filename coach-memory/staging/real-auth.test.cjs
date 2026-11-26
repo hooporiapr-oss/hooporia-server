@@ -52,6 +52,7 @@ async function user(){
   assert.equal(verified.id,c.sub);assert.equal(c.iss,api.origin+'/auth/v1');assert.equal(c.role,'authenticated');assert.equal(c.is_anonymous,false);
   const args=[c.sub,c.session_id,c.exp,input.membership_id].map(quote).join(',');
   const routes={
+   get_bpm_plan:['server_get_bpm_plan',[input.plan_id,input.station]],
    save_plan:['server_save_plan',[input.effective_on,input.request_id,JSON.stringify(input.plan)]],
    submit_bpm:['server_submit_bpm',[input.request_id,input.bpm,input.measured_at]],
    confirm_bpm:['server_confirm_bpm',[input.measurement_id,input.request_id]],
@@ -86,15 +87,23 @@ async function user(){
  mark('idempotent BPM confirmation');assert.equal(await call(a,confirmation),cid);
  mark('unauthorized BPM confirmation rejected');await assert.rejects(call(b,{...confirmation,request_id:randomUUID()}),e=>e.safeCode==='42501');
  const today=sql("select (clock_timestamp() at time zone 'America/Puerto_Rico')::date");
- const bound={action:'save_bpm_plan',membership_id:membership,confirmation_id:cid,effective_on:today,request_id:randomUUID(),plan:{stage:'9-10',days:3,stations:['recall']}};
+ const bound={action:'save_bpm_plan',membership_id:membership,confirmation_id:cid,effective_on:today,request_id:randomUUID(),plan:{stage:'9-10',days:3,stations:['recall','ritnome']}};
  mark('authenticated confirmed BPM plan');const pid=await call(a,bound);assert.match(pid,/^[0-9a-f-]{36}$/i);
  mark('idempotent confirmed BPM plan');assert.equal(await call(a,bound),pid);
  mark('confirmed BPM stored with exact source');assert.equal(sql("select (e.payload->>'bpm')||':'||b.confirmation_id::text from coach_memory_private.event e join coach_memory_private.plan_bpm_binding b on b.event_id=e.id where e.id="+quote(pid)),'84:'+cid);
  mark('caller BPM override rejected');await assert.rejects(call(a,{...bound,request_id:randomUUID(),plan:{...bound.plan,bpm:85}}),e=>e.safeCode==='22023');
  mark('unauthorized BPM plan rejected');await assert.rejects(call(b,{...bound,request_id:randomUUID()}),e=>e.safeCode==='42501');
  mark('authorized read includes bound plan');assert.equal(await call(a,read),'2');
+ const lookup={action:'get_bpm_plan',membership_id:membership,plan_id:pid,station:'ritnome'};
+ mark('real authenticated exact Ritnome prescription');assert.deepEqual(JSON.parse(await call(a,lookup)),{plan_id:pid,membership_id:membership,confirmation_id:cid,bpm:84,station:'ritnome',effective_on:today,stage:'9-10'});
+ mark('unassigned station rejected');await assert.rejects(call(a,{...lookup,station:'fortress'}),e=>e.safeCode==='22023');
+ mark('wrong plan rejected');await assert.rejects(call(a,{...lookup,plan_id:id}),e=>e.safeCode==='22023');
+ mark('unauthorized Ritnome lookup rejected');await assert.rejects(call(b,lookup),e=>e.safeCode==='42501');
+ mark('wrong membership rejected');await assert.rejects(call(a,{...lookup,membership_id:randomUUID()}),e=>e.safeCode==='42501');
  mark('revoke synthetic session');sql('delete from auth.sessions where user_id='+quote(a.id));
  mark('revoked session rejected');await assert.rejects(call(a,read),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
  mark('revoked session BPM rejected');await assert.rejects(call(a,{...measurement,request_id:randomUUID()}),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
+ mark('revoked session Ritnome lookup rejected');await assert.rejects(call(a,lookup),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
+ console.log('PASS: exact Ritnome prescription through real local Auth and restricted database role');
  console.log('PASS: actual local Supabase Auth, scoped storage, confirmed BPM plan binding, idempotency, unauthorized access, override and revoked session rejection');
 })().catch(e=>{const code=typeof e.safeCode==='string'&&/^(?:[0-9A-Z]{5}|HTTP [0-9]{3}|unknown)$/.test(e.safeCode)?e.safeCode:(e.code==='ERR_ASSERTION'?'assertion':'unexpected');console.error('FAIL: '+stage+' ['+code+']'+(e.safeReason?' '+e.safeReason:''));process.exitCode=1});
