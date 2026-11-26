@@ -11,7 +11,7 @@ Three deployments and one SQL run. Production stays off until step 4 is done; un
 3. Authentication → Providers → Email: enabled, with "Confirm email" on. Coaches create their own account from Coach View; nothing else is needed for them.
 4. Note the session-pooler connection string (Project settings → Database → Connection string → Session pooler, port 5432). Use `coach_memory_login` as the user. The direct host is IPv6-only, which Render cannot reach; the session pooler keeps the transaction behaviour the server relies on.
 
-## 2. hooporia-server (Render service cognitivo-gym-server)
+## 2. hooporia-server (Render service hooporia-server (hooporia-server.onrender.com))
 Environment variables:
 - `COACH_MEMORY_ENABLED=true`
 - `COACH_MEMORY_SUPABASE_URL` = the project URL (https://….supabase.co)
