@@ -19,15 +19,28 @@ function createMemoryService({supabaseUrl,publishableKey,withTransaction,fetchIm
  async function run(authorization,input){
   const principal=await authenticate(authorization);
   if(!input||typeof input!=='object'||Array.isArray(input)||!validUuid(input.membership_id))throw fail(400);
-  const read=input.action==='read',save=input.action==='save_plan';
-  if(!read&&!save)throw fail(400);
-  const keys=read?['action','membership_id','page_size','before_time','before_id']:['action','membership_id','request_id','effective_on','plan'];
+  const read=input.action==='read',save=input.action==='save_plan',submit=input.action==='submit_bpm',confirm=input.action==='confirm_bpm',bound=input.action==='save_bpm_plan';
+  if(!read&&!save&&!submit&&!confirm&&!bound)throw fail(400);
+  const common=['action','membership_id'];
+  const keys=common.concat(read?['page_size','before_time','before_id']:submit?['request_id','bpm','measured_at']:confirm?['request_id','measurement_id']:bound?['request_id','effective_on','plan','confirmation_id']:['request_id','effective_on','plan']);
   if(Object.keys(input).some(k=>!keys.includes(k)))throw fail(400);
-  if(save&&(!validUuid(input.request_id)||typeof input.effective_on!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(input.effective_on)||!input.plan||typeof input.plan!=='object'||Array.isArray(input.plan)||Buffer.byteLength(JSON.stringify(input.plan))>32768))throw fail(400);
+  if(!read&&!validUuid(input.request_id))throw fail(400);
+  if(submit&&(!Number.isInteger(input.bpm)||input.bpm<1||input.bpm>1000||typeof input.measured_at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(input.measured_at)||!Number.isFinite(Date.parse(input.measured_at))))throw fail(400);
+  if(confirm&&!validUuid(input.measurement_id))throw fail(400);
+  if(bound&&!validUuid(input.confirmation_id))throw fail(400);
+  if((save||bound)&&(typeof input.effective_on!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(input.effective_on)||!input.plan||typeof input.plan!=='object'||Array.isArray(input.plan)||Buffer.byteLength(JSON.stringify(input.plan))>32768))throw fail(400);
+  if(bound&&Object.hasOwn(input.plan,'bpm'))throw fail(400);
+  if(save&&input.plan.bpm!==null)throw fail(400);
   const size=input.page_size??25;
   if(read&&(!Number.isInteger(size)||size<1||size>100||(input.before_time==null)!==(input.before_id==null)||(input.before_id!=null&&(!validUuid(input.before_id)||typeof input.before_time!=='string'||!Number.isFinite(Date.parse(input.before_time))))))throw fail(400);
   try{return await withTransaction(async db=>{
    // Only restricted private wrappers are accessible to the future server login.
+   const base=[principal.actor,principal.session,principal.expires,input.membership_id];
+   let q;
+   if(submit)q=await db.query('select coach_memory_private.server_submit_bpm($1::uuid,$2::uuid,$3::bigint,$4::uuid,$5::uuid,$6::integer,$7::timestamptz) as id',[...base,input.request_id,input.bpm,input.measured_at]);
+   else if(confirm)q=await db.query('select coach_memory_private.server_confirm_bpm($1::uuid,$2::uuid,$3::bigint,$4::uuid,$5::uuid,$6::uuid) as id',[...base,input.measurement_id,input.request_id]);
+   else if(bound)q=await db.query('select coach_memory_private.server_save_bpm_plan($1::uuid,$2::uuid,$3::bigint,$4::uuid,$5::uuid,$6::date,$7::uuid,$8::jsonb) as id',[...base,input.confirmation_id,input.effective_on,input.request_id,JSON.stringify(input.plan)]);
+   if(submit||confirm||bound){if(!validUuid(q.rows[0]?.id))throw fail(503);return {id:q.rows[0].id}}
    if(save){
     const q=await db.query('select coach_memory_private.server_save_plan($1::uuid,$2::uuid,$3::bigint,$4::uuid,$5::date,$6::uuid,$7::jsonb) as id',[principal.actor,principal.session,principal.expires,input.membership_id,input.effective_on,input.request_id,JSON.stringify(input.plan)]);
     if(!validUuid(q.rows[0]?.id))throw fail(503);return {id:q.rows[0].id};
