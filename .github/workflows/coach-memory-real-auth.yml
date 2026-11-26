@@ -38,7 +38,7 @@ jobs:
         run: |
           set -eu
           export PGHOST=127.0.0.1 PGPORT=54322 PGUSER=postgres PGDATABASE=postgres PGPASSWORD=postgres
-          for f in athlete-identity-draft coach-memory-draft access-control-draft enrollment-transaction-draft coach-memory-engine-draft session-authorization-draft backend-role-draft bpm-verification-draft bpm-transactions-draft bpm-plan-binding-draft bpm-backend-role-draft bpm-prescription-lookup-draft goal-backend-role-draft; do
+          for f in athlete-identity-draft coach-memory-draft access-control-draft enrollment-transaction-draft coach-memory-engine-draft session-authorization-draft backend-role-draft bpm-verification-draft bpm-transactions-draft bpm-plan-binding-draft bpm-backend-role-draft bpm-prescription-lookup-draft goal-backend-role-draft enrollment-list-role-draft; do
             echo "Applying $f"
             psql -X -v ON_ERROR_STOP=1 -f "coach-memory/staging/$f.sql"
           done
