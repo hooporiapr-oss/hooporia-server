@@ -32,9 +32,17 @@ jobs:
           set -eu
           export PGHOST=127.0.0.1 PGPORT=54322 PGUSER=postgres PGDATABASE=postgres PGPASSWORD=postgres
           for f in athlete-identity-draft coach-memory-draft access-control-draft enrollment-transaction-draft coach-memory-engine-draft session-authorization-draft backend-role-draft; do
+            echo "Applying $f"
             psql -X -v ON_ERROR_STOP=1 -f "coach-memory/staging/$f.sql"
           done
           node coach-memory/staging/real-auth.test.cjs "$RUNNER_TEMP/cm-local.json"
+      - name: Collect sanitized local database crash diagnostics
+        if: failure()
+        run: |
+          docker ps -a --format '{{.Names}} {{.Image}}' | grep '^supabase_db_' || true
+          for c in $(docker ps -a --format '{{.Names}}' | grep '^supabase_db_'); do
+            docker logs --tail 200 "$c" 2>&1 | grep -Ei 'signal 11|segmentation fault|server process.*terminated|database system.*recovery|database system.*ready|PANIC' | grep -Eiv 'password|token|secret|key|postgresql://' || true
+          done
       - name: Destroy disposable environment
         if: always()
         run: |
