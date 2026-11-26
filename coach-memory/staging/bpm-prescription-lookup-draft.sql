@@ -23,8 +23,13 @@ begin
  return result;
 end $$;
 revoke all on function coach_memory_private.server_get_bpm_plan(uuid,uuid,bigint,uuid,uuid,text) from public,anon,authenticated;
+-- Match the temporary installer membership used by the preceding backend draft.
+grant coach_memory_executor to postgres;
 grant create on schema coach_memory_private to coach_memory_executor;
 alter function coach_memory_private.server_get_bpm_plan(uuid,uuid,bigint,uuid,uuid,text) owner to coach_memory_executor;
-revoke create on schema coach_memory_private from coach_memory_executor;
+set local role coach_memory_executor;
 grant execute on function coach_memory_private.server_get_bpm_plan(uuid,uuid,bigint,uuid,uuid,text) to coach_memory_backend;
+reset role;
+revoke create on schema coach_memory_private from coach_memory_executor;
+revoke coach_memory_executor from postgres;
 commit;
