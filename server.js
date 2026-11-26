@@ -175,8 +175,14 @@ app.use('/avisos', require('./avisos.js')({ base: supabase, avisar: async (d) =>
   if (!r.ok) throw new Error('resend ' + r.status + ': ' + (await r.text()).slice(0, 200));
 } }));
 
-// Coach Memory development mount: explicitly disabled; no database connection.
-require('./coach-memory/coach-memory-install.cjs').installCoachMemory(app,{env:{COACH_MEMORY_ENABLED:'false'}});
+// Coach Memory: off unless COACH_MEMORY_ENABLED=true, COACH_MEMORY_SUPABASE_URL,
+// COACH_MEMORY_PUBLISHABLE_KEY and COACH_MEMORY_DATABASE_URL (restricted login) are all set.
+// Mounted before express.json() and global CORS on purpose; it has its own limits and origin check.
+(function(){
+  var cmEnv = process.env, cmPool;
+  if (cmEnv.COACH_MEMORY_ENABLED === 'true') cmPool = require('./coach-memory/coach-memory-pool.cjs').createCoachMemoryPool(cmEnv);
+  require('./coach-memory/coach-memory-install.cjs').installCoachMemory(app, { env: cmEnv, pool: cmPool });
+})();
 
 app.use(express.json());
 

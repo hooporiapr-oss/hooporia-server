@@ -24,8 +24,8 @@ function createMemoryService({supabaseUrl,publishableKey,withTransaction,fetchIm
    if(Object.keys(input).some(k=>!['action','after_id','page_size'].includes(k))||!Number.isInteger(size)||size<1||size>100||(input.after_id!=null&&!validUuid(input.after_id)))throw fail(400);
    try{return await withTransaction(async db=>{
     const q=await db.query('select * from coach_memory_private.server_list_enrollments($1::uuid,$2::uuid,$3::bigint,$4::uuid,$5::integer)',[principal.actor,principal.session,principal.expires,input.after_id??null,size]);
-    if(!Array.isArray(q.rows)||q.rows.length>size||q.rows.some(r=>!validUuid(r.membership_id)||typeof r.program_key!=='string'||!r.program_key.trim()||r.program_key.length>200))throw fail(503);
-    return {enrollments:q.rows.map(r=>({membership_id:r.membership_id,program_key:r.program_key}))};
+    if(!Array.isArray(q.rows)||q.rows.length>size||q.rows.some(r=>!validUuid(r.membership_id)||typeof r.program_key!=='string'||!r.program_key.trim()||r.program_key.length>200||(r.label!=null&&(typeof r.label!=='string'||r.label.length>80))))throw fail(503);
+    return {enrollments:q.rows.map(r=>({membership_id:r.membership_id,program_key:r.program_key,label:r.label??null}))};
    })}catch(e){if(e.status)throw e;if(e.code==='28000')throw fail(401);if(e.code==='42501')throw fail(403);if(e.code==='22023')throw fail(400);throw fail(503)}
   }
   if(!validUuid(input.membership_id))throw fail(400);
