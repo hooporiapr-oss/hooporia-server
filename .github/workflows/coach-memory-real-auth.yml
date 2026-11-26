@@ -66,15 +66,8 @@ jobs:
           select c.relname,c.relrowsecurity,c.relforcerowsecurity
           from pg_class c join pg_namespace n on n.oid=c.relnamespace
           where n.nspname='auth' and c.relname in ('users','sessions');
-          do $
-          begin
-            if (select relrowsecurity from pg_class where oid='auth.users'::regclass) then
-              create policy cm_local_executor_users_read on auth.users for select to coach_memory_executor using (true);
-            end if;
-            if (select relrowsecurity from pg_class where oid='auth.sessions'::regclass) then
-              create policy cm_local_executor_sessions_read on auth.sessions for select to coach_memory_executor using (true);
-            end if;
-          end $;
+          create policy cm_local_executor_users_read on auth.users for select to coach_memory_executor using (true);
+          create policy cm_local_executor_sessions_read on auth.sessions for select to coach_memory_executor using (true);
           commit;
           SQL
           node coach-memory/staging/real-auth.test.cjs "$RUNNER_TEMP/cm-local.json"
