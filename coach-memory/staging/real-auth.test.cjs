@@ -51,7 +51,15 @@ async function user(){
   const c=JSON.parse(Buffer.from(u.token.split('.')[1],'base64url').toString());
   assert.equal(verified.id,c.sub);assert.equal(c.iss,api.origin+'/auth/v1');assert.equal(c.role,'authenticated');assert.equal(c.is_anonymous,false);
   const args=[c.sub,c.session_id,c.exp,input.membership_id].map(quote).join(',');
-  const q=input.action==='save_plan'?'select coach_memory_private.server_save_plan('+args+','+[input.effective_on,input.request_id,JSON.stringify(input.plan)].map(quote).join(',')+')':'select count(*) from coach_memory_private.server_read_memory('+args+',25,null,null)';
+  const routes={
+   save_plan:['server_save_plan',[input.effective_on,input.request_id,JSON.stringify(input.plan)]],
+   submit_bpm:['server_submit_bpm',[input.request_id,input.bpm,input.measured_at]],
+   confirm_bpm:['server_confirm_bpm',[input.measurement_id,input.request_id]],
+   save_bpm_plan:['server_save_bpm_plan',[input.confirmation_id,input.effective_on,input.request_id,JSON.stringify(input.plan)]]
+  };
+  const route=routes[input.action];
+  if(!route&&input.action!=='read')throw Error('Unknown test action');
+  const q=route?'select coach_memory_private.'+route[0]+'('+args+','+route[1].map(quote).join(',')+')':'select count(*) from coach_memory_private.server_read_memory('+args+',25,null,null)';
   return sql('begin; set local role coach_memory_backend; '+q+'; commit;',true);
  }
  // Check named capabilities separately before exercising the wrappers.
@@ -68,7 +76,25 @@ async function user(){
  mark('authorized read');assert.equal(await call(a,read),'1');
  mark('unauthorized coach rejected');await assert.rejects(call(b,read),e=>e.safeCode==='42501');
  mark('unverified BPM rejected');await assert.rejects(call(a,{...save,request_id:randomUUID(),plan:{...save.plan,bpm:84}}),e=>e.safeCode==='22023');
+ const measurement={action:'submit_bpm',membership_id:membership,request_id:randomUUID(),bpm:84,measured_at:new Date().toISOString()};
+ mark('authenticated BPM submission');const mid=await call(a,measurement);assert.match(mid,/^[0-9a-f-]{36}$/i);
+ mark('idempotent BPM submission');assert.equal(await call(a,measurement),mid);
+ mark('unauthorized BPM submission rejected');await assert.rejects(call(b,{...measurement,request_id:randomUUID()}),e=>e.safeCode==='42501');
+ mark('BPM retry alteration rejected');await assert.rejects(call(a,{...measurement,bpm:85}),e=>e.safeCode==='22023');
+ const confirmation={action:'confirm_bpm',membership_id:membership,measurement_id:mid,request_id:randomUUID()};
+ mark('authenticated BPM confirmation');const cid=await call(a,confirmation);assert.match(cid,/^[0-9a-f-]{36}$/i);
+ mark('idempotent BPM confirmation');assert.equal(await call(a,confirmation),cid);
+ mark('unauthorized BPM confirmation rejected');await assert.rejects(call(b,{...confirmation,request_id:randomUUID()}),e=>e.safeCode==='42501');
+ const today=sql("select (clock_timestamp() at time zone 'America/Puerto_Rico')::date");
+ const bound={action:'save_bpm_plan',membership_id:membership,confirmation_id:cid,effective_on:today,request_id:randomUUID(),plan:{stage:'9-10',days:3,stations:['recall']}};
+ mark('authenticated confirmed BPM plan');const pid=await call(a,bound);assert.match(pid,/^[0-9a-f-]{36}$/i);
+ mark('idempotent confirmed BPM plan');assert.equal(await call(a,bound),pid);
+ mark('confirmed BPM stored with exact source');assert.equal(sql("select (e.payload->>'bpm')||':'||b.confirmation_id::text from coach_memory_private.event e join coach_memory_private.plan_bpm_binding b on b.event_id=e.id where e.id="+quote(pid)),'84:'+cid);
+ mark('caller BPM override rejected');await assert.rejects(call(a,{...bound,request_id:randomUUID(),plan:{...bound.plan,bpm:85}}),e=>e.safeCode==='22023');
+ mark('unauthorized BPM plan rejected');await assert.rejects(call(b,{...bound,request_id:randomUUID()}),e=>e.safeCode==='42501');
+ mark('authorized read includes bound plan');assert.equal(await call(a,read),'2');
  mark('revoke synthetic session');sql('delete from auth.sessions where user_id='+quote(a.id));
  mark('revoked session rejected');await assert.rejects(call(a,read),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
- console.log('PASS: actual local Supabase Auth tokens, scoped save/read, idempotency, unauthorized access, unverified BPM and revoked session');
+ mark('revoked session BPM rejected');await assert.rejects(call(a,{...measurement,request_id:randomUUID()}),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
+ console.log('PASS: actual local Supabase Auth, scoped storage, confirmed BPM plan binding, idempotency, unauthorized access, override and revoked session rejection');
 })().catch(e=>{const code=typeof e.safeCode==='string'&&/^(?:[0-9A-Z]{5}|HTTP [0-9]{3}|unknown)$/.test(e.safeCode)?e.safeCode:(e.code==='ERR_ASSERTION'?'assertion':'unexpected');console.error('FAIL: '+stage+' ['+code+']'+(e.safeReason?' '+e.safeReason:''));process.exitCode=1});
