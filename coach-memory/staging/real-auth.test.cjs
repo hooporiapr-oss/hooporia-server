@@ -52,6 +52,7 @@ async function user(){
   assert.equal(verified.id,c.sub);assert.equal(c.iss,api.origin+'/auth/v1');assert.equal(c.role,'authenticated');assert.equal(c.is_anonymous,false);
   const args=[c.sub,c.session_id,c.exp,input.membership_id].map(quote).join(',');
   const routes={
+   save_goal:['server_save_goal',[input.effective_on,input.request_id,JSON.stringify(input.goal)]],
    get_bpm_plan:['server_get_bpm_plan',[input.plan_id,input.station]],
    save_plan:['server_save_plan',[input.effective_on,input.request_id,JSON.stringify(input.plan)]],
    submit_bpm:['server_submit_bpm',[input.request_id,input.bpm,input.measured_at]],
@@ -100,6 +101,15 @@ async function user(){
  mark('wrong plan rejected');await assert.rejects(call(a,{...lookup,plan_id:id}),e=>e.safeCode==='22023');
  mark('unauthorized Ritnome lookup rejected');await assert.rejects(call(b,lookup),e=>e.safeCode==='42501');
  mark('wrong membership rejected');await assert.rejects(call(a,{...lookup,membership_id:randomUUID()}),e=>e.safeCode==='42501');
+
+ const goal={action:'save_goal',membership_id:membership,request_id:randomUUID(),effective_on:today,goal:{metric:'active_days',baseline:2,target:4}};
+ mark('authenticated goal save');const gid=await call(a,goal);assert.match(gid,/^[0-9a-f-]{36}$/i);
+ mark('idempotent goal save');assert.equal(await call(a,goal),gid);
+ mark('goal retry alteration denied');await assert.rejects(call(a,{...goal,goal:{...goal.goal,target:5}}),e=>e.safeCode==='22023');
+ mark('unauthorized goal denied');await assert.rejects(call(b,{...goal,request_id:randomUUID()}),e=>e.safeCode==='42501');
+ mark('invalid weekly target denied');await assert.rejects(call(a,{...goal,request_id:randomUUID(),goal:{...goal.goal,target:8}}),e=>e.safeCode==='22023');
+ mark('goal retained in history');assert.equal(await call(a,read),'3');
+ assert.equal(sql("select payload->>'target' from coach_memory_private.event where id="+quote(gid)),'4');
 
  // Cross-repository integration: actual client adapter, real local Auth and
  // restricted SQL lookup behind the actual HTTP handler. The local-only service
@@ -158,6 +168,7 @@ async function user(){
 
  mark('revoke synthetic session');sql('delete from auth.sessions where user_id='+quote(a.id));
  mark('revoked session rejected');await assert.rejects(call(a,read),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
+ mark('revoked session goal rejected');await assert.rejects(call(a,{...goal,request_id:randomUUID()}),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
  mark('revoked session BPM rejected');await assert.rejects(call(a,{...measurement,request_id:randomUUID()}),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
  mark('revoked session Ritnome lookup rejected');await assert.rejects(call(a,lookup),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
  console.log('PASS: exact Ritnome prescription through real local Auth and restricted database role');
