@@ -50,7 +50,10 @@ grant coach_memory_executor to postgres;
 grant create on schema coach_memory_private to coach_memory_executor;
 alter function coach_memory_private.server_save_plan(uuid,uuid,bigint,uuid,date,uuid,jsonb) owner to coach_memory_executor;
 alter function coach_memory_private.server_read_memory(uuid,uuid,bigint,uuid,integer,timestamptz,uuid) owner to coach_memory_executor;
+-- Grant as the new function owner, not the non-superuser installer.
+set local role coach_memory_executor;
+grant execute on function coach_memory_private.server_save_plan(uuid,uuid,bigint,uuid,date,uuid,jsonb),coach_memory_private.server_read_memory(uuid,uuid,bigint,uuid,integer,timestamptz,uuid) to coach_memory_backend;
+reset role;
 revoke create on schema coach_memory_private from coach_memory_executor;
 revoke coach_memory_executor from postgres;
-grant execute on function coach_memory_private.server_save_plan(uuid,uuid,bigint,uuid,date,uuid,jsonb),coach_memory_private.server_read_memory(uuid,uuid,bigint,uuid,integer,timestamptz,uuid) to coach_memory_backend;
 commit;
