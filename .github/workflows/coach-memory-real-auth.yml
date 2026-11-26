@@ -1,0 +1,93 @@
+name: Coach Memory real local Auth
+on:
+  pull_request:
+    paths: ['coach-memory/staging/**', '.github/workflows/coach-memory-real-auth.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-auth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout validated Personal BPM client
+        uses: actions/checkout@v4
+        with:
+          repository: hooporiapr-oss/fortress-MOBI
+          ref: d1b4ddd55f47d1980429a7e841fa16f65e7a9e12
+          path: .test-fortress
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.39.2
+      - name: Start disposable local Supabase
+        run: |
+          supabase --version
+          supabase init --help
+          supabase start --help
+          supabase status --help
+          supabase init
+          supabase start
+          umask 077
+          supabase status -o json > "$RUNNER_TEMP/cm-local.json"
+      - name: Apply isolated schema and verify local Auth
+        run: |
+          set -eu
+          export PGHOST=127.0.0.1 PGPORT=54322 PGUSER=postgres PGDATABASE=postgres PGPASSWORD=postgres
+          for f in athlete-identity-draft coach-memory-draft access-control-draft enrollment-transaction-draft coach-memory-engine-draft session-authorization-draft backend-role-draft bpm-verification-draft bpm-transactions-draft bpm-plan-binding-draft bpm-backend-role-draft bpm-prescription-lookup-draft goal-backend-role-draft admin-ops-draft enrollment-list-role-draft; do
+            echo "Applying $f"
+            psql -X -v ON_ERROR_STOP=1 -f "coach-memory/staging/$f.sql"
+          done
+          # Inspect only role and ACL metadata; no user rows or credentials.
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          select current_user, session_user;
+          select n.nspname, pg_get_userbyid(n.nspowner) as owner,
+            has_schema_privilege(current_user,n.oid,'USAGE WITH GRANT OPTION') as installer_can_grant
+          from pg_namespace n where n.nspname='auth';
+          select c.relname,pg_get_userbyid(c.relowner) as owner
+          from pg_class c join pg_namespace n on n.oid=c.relnamespace
+          where n.nspname='auth' and c.relname in ('users','sessions');
+          select rolname,rolsuper,rolcanlogin,pg_has_role(current_user,oid,'MEMBER') as installer_member
+          from pg_roles where rolname in ('postgres','supabase_admin','supabase_auth_admin');
+          SQL
+          # The container has its own configured administrative password.
+          # Use that environment value inside the disposable container; never print it.
+          mapfile -t db_containers < <(docker ps --format '{{.Names}}' | grep '^supabase_db_')
+          test "${#db_containers[@]}" -eq 1
+          docker exec -i "${db_containers[0]}" sh -ec '
+            : "${POSTGRES_PASSWORD:?Missing local database configuration}"
+            export PGPASSWORD="$POSTGRES_PASSWORD"
+            exec psql -X -w -U supabase_admin -d postgres -v ON_ERROR_STOP=1
+          ' <<'SQL'
+          begin;
+          grant usage on schema auth to coach_memory_executor;
+          grant select(id,is_anonymous) on auth.users to coach_memory_executor;
+          grant select(id,user_id,not_after) on auth.sessions to coach_memory_executor;
+          -- The column grants alone do not make rows visible through Auth RLS.
+          -- Inspect actual RLS state; grant row visibility only to the isolated
+          -- NOLOGIN executor, whose SELECT grants remain column-limited.
+          select c.relname,c.relrowsecurity,c.relforcerowsecurity
+          from pg_class c join pg_namespace n on n.oid=c.relnamespace
+          where n.nspname='auth' and c.relname in ('users','sessions');
+          create policy cm_local_executor_users_read on auth.users for select to coach_memory_executor using (true);
+          create policy cm_local_executor_sessions_read on auth.sessions for select to coach_memory_executor using (true);
+          commit;
+          SQL
+          node coach-memory/staging/real-auth.test.cjs "$RUNNER_TEMP/cm-local.json" "$GITHUB_WORKSPACE/.test-fortress/development"
+      - name: Collect sanitized local database crash diagnostics
+        if: failure()
+        run: |
+          docker ps -a --format '{{.Names}} {{.Image}}' | grep '^supabase_db_' || true
+          for c in $(docker ps -a --format '{{.Names}}' | grep '^supabase_db_'); do
+            docker logs --tail 200 "$c" 2>&1 | grep -Ei 'signal 11|segmentation fault|server process.*terminated|database system.*recovery|database system.*ready|PANIC' | grep -Eiv 'password|token|secret|key|postgresql://' || true
+          done
+      - name: Destroy disposable environment
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/cm-local.json"
+          supabase stop --help
+          supabase stop --no-backup
