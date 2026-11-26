@@ -14,7 +14,7 @@ function mark(name){stage=name;console.log('STAGE: '+name)}
 function sql(query,restricted=false){
  const u=new URL(db);
  if(restricted){u.username='cm_test_login';u.password=password;}
- try{return execFileSync('psql',['-X','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-c',query],{env:{...process.env,PGHOST:u.hostname,PGPORT:u.port,PGDATABASE:u.pathname.slice(1),PGUSER:decodeURIComponent(u.username),PGPASSWORD:decodeURIComponent(u.password)},stdio:['ignore','pipe','pipe']}).toString().trim()}catch(e){const msg=String(e.stderr||'');const code=msg.match(/(?:ERROR|FATAL):\s+([0-9A-Z]{5}):/)?.[1]||'unknown';throw Object.assign(new Error('Database operation failed'),{safeCode:code})}
+ try{return execFileSync('psql',['-X','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-c',query],{env:{...process.env,PGHOST:u.hostname,PGPORT:u.port,PGDATABASE:u.pathname.slice(1),PGUSER:decodeURIComponent(u.username),PGPASSWORD:decodeURIComponent(u.password)},stdio:['ignore','pipe','pipe']}).toString().trim()}catch(e){const msg=String(e.stderr||'');const code=msg.match(/(?:ERROR|FATAL):\s+([0-9A-Z]{5}):/)?.[1]||'unknown';const reason=code==='42501'?(msg.match(/permission denied for (?:schema|table|function|relation|database) (?:auth|public|coach_memory_private|users|sessions|athlete_identity_membership|coach_grant|event|server_save_plan|server_read_memory|active_session|lock_memory_access|append_memory|valid_memory_payload|read_memory|postgres)\b/)?.[0]||(/permission denied to set role/.test(msg)?'role switch denied':/Access denied/.test(msg)?'coach scope denied':'permission denied (unclassified)')):undefined;throw Object.assign(new Error('Database operation failed'),{safeCode:code,safeReason:reason})}
 }
 const password=randomUUID().replaceAll('-','');
 const quote=v=>"'"+String(v).replaceAll("'","''")+"'";
@@ -54,6 +54,15 @@ async function user(){
   const q=input.action==='save_plan'?'select coach_memory_private.server_save_plan('+args+','+[input.effective_on,input.request_id,JSON.stringify(input.plan)].map(quote).join(',')+')':'select count(*) from coach_memory_private.server_read_memory('+args+',25,null,null)';
   return sql('begin; set local role coach_memory_backend; '+q+'; commit;',true);
  }
+ // Check named capabilities separately before exercising the wrappers.
+ mark('restricted login role switch');
+ assert.equal(sql("begin; set local role coach_memory_backend; select current_user; commit;",true),'coach_memory_backend');
+ mark('restricted wrapper execution privileges');
+ assert.equal(sql("begin; set local role coach_memory_backend; select has_schema_privilege(current_user,'coach_memory_private','USAGE') and has_function_privilege(current_user,'coach_memory_private.server_save_plan(uuid,uuid,bigint,uuid,date,uuid,jsonb)','EXECUTE'); commit;",true),'t');
+ mark('executor auth schema usage');
+ assert.equal(sql("select has_schema_privilege('coach_memory_executor','auth','USAGE')"),'t');
+ mark('executor session column privileges');
+ assert.equal(sql("select has_column_privilege('coach_memory_executor','auth.users','id','SELECT') and has_column_privilege('coach_memory_executor','auth.users','is_anonymous','SELECT') and has_column_privilege('coach_memory_executor','auth.sessions','id','SELECT') and has_column_privilege('coach_memory_executor','auth.sessions','user_id','SELECT') and has_column_privilege('coach_memory_executor','auth.sessions','not_after','SELECT')"),'t');
  mark('authorized save');const id=await call(a,save);assert.match(id,/^[0-9a-f-]{36}$/i);
  mark('idempotent save');assert.equal(await call(a,save),id);
  mark('authorized read');assert.equal(await call(a,read),'1');
@@ -62,4 +71,4 @@ async function user(){
  mark('revoke synthetic session');sql('delete from auth.sessions where user_id='+quote(a.id));
  mark('revoked session rejected');await assert.rejects(call(a,read),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
  console.log('PASS: actual local Supabase Auth tokens, scoped save/read, idempotency, unauthorized access, unverified BPM and revoked session');
-})().catch(e=>{const code=typeof e.safeCode==='string'&&/^(?:[0-9A-Z]{5}|HTTP [0-9]{3}|unknown)$/.test(e.safeCode)?e.safeCode:(e.code==='ERR_ASSERTION'?'assertion':'unexpected');console.error('FAIL: '+stage+' ['+code+']');process.exitCode=1});
+})().catch(e=>{const code=typeof e.safeCode==='string'&&/^(?:[0-9A-Z]{5}|HTTP [0-9]{3}|unknown)$/.test(e.safeCode)?e.safeCode:(e.code==='ERR_ASSERTION'?'assertion':'unexpected');console.error('FAIL: '+stage+' ['+code+']'+(e.safeReason?' '+e.safeReason:''));process.exitCode=1});
