@@ -25,7 +25,7 @@ function createMemoryService({supabaseUrl,publishableKey,withTransaction,fetchIm
   const keys=common.concat(lookup?['plan_id','station']:read?['page_size','before_time','before_id']:submit?['request_id','bpm','measured_at']:confirm?['request_id','measurement_id']:bound?['request_id','effective_on','plan','confirmation_id']:['request_id','effective_on','plan']);
   if(Object.keys(input).some(k=>!keys.includes(k)))throw fail(400);
   if(!read&&!lookup&&!validUuid(input.request_id))throw fail(400);
-  if(lookup&&(!validUuid(input.plan_id)||!['recall','recognition','replay','fortress','zn','zr','enc'].includes(input.station)))throw fail(400);
+  if(lookup&&(!validUuid(input.plan_id)||!['recall','recognition','replay','fortress','zn','zr','enc','ritnome'].includes(input.station)))throw fail(400);
   if(submit&&(!Number.isInteger(input.bpm)||input.bpm<1||input.bpm>1000||typeof input.measured_at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(input.measured_at)||!Number.isFinite(Date.parse(input.measured_at))))throw fail(400);
   if(confirm&&!validUuid(input.measurement_id))throw fail(400);
   if(bound&&!validUuid(input.confirmation_id))throw fail(400);
