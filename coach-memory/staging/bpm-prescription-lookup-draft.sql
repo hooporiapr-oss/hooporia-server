@@ -6,7 +6,7 @@ declare result jsonb;
 begin
  if not coach_memory_private.active_session(actor,session_key,token_exp) then raise exception 'Session denied' using errcode='28000';end if;
  perform coach_memory_private.lock_memory_access(actor,target_membership);
- if target_plan is null or target_station is null or target_station not in ('recall','recognition','replay','fortress','zn','zr','enc') then raise exception 'Invalid selection' using errcode='22023';end if;
+ if target_plan is null or target_station is null or target_station not in ('recall','recognition','replay','fortress','zn','zr','enc','ritnome') then raise exception 'Invalid selection' using errcode='22023';end if;
  select jsonb_build_object('plan_id',e.id,'membership_id',e.membership_id,'confirmation_id',c.id,'bpm',b.bpm,'station',target_station,'effective_on',e.effective_on,'stage',e.payload->>'stage')
  into result
  from coach_memory_private.event e
@@ -16,6 +16,7 @@ begin
  where e.id=target_plan and e.membership_id=target_membership and e.kind='training_plan'
  and e.effective_on<=(clock_timestamp() at time zone 'America/Puerto_Rico')::date
  and (e.payload->'stations') ? target_station
+ and (target_station<>'ritnome' or (e.payload->>'stage' not in ('5-6','7-8') and b.bpm between 40 and 200))
  and e.payload->'bpm'=to_jsonb(b.bpm)
  and not exists(select 1 from coach_memory_private.event correction where correction.membership_id=e.membership_id and correction.supersedes_id=e.id);
  if result is null then raise exception 'Prescription unavailable' using errcode='22023';end if;
