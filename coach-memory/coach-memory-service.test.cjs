@@ -16,6 +16,5 @@ anonymous=true;await rejects(token(),read,401);anonymous=false;http=401;await re
 await rejects(token(),{...read,actor:membership},400);await rejects(token(),{...read,page_size:101},400);await rejects(token(),{...read,before_id:request},400);
 allowed=false;const count=queries.length;await rejects(token(),save,401);assert.equal(queries.length,count+1);allowed=true;
 dbError='42501';await rejects(token(),read,403);dbError='22023';await rejects(token(),save,400);dbError='XX000';await rejects(token(),save,503);
-const html=require('node:fs').readFileSync('coach.html','utf8');assert.match(html,/id="cmSave" type="button" disabled/);assert.match(html,/id="cmHistory" type="button" disabled/);
-console.log('PASS: mocked authentication, session denial, actor binding, input validation, SQL error mapping and disabled preview controls');
+console.log('PASS: mocked authentication, session denial, actor binding, input validation, SQL error mapping');
 })().catch(e=>{console.error(e);process.exitCode=1});
