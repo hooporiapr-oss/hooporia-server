@@ -100,6 +100,62 @@ async function user(){
  mark('wrong plan rejected');await assert.rejects(call(a,{...lookup,plan_id:id}),e=>e.safeCode==='22023');
  mark('unauthorized Ritnome lookup rejected');await assert.rejects(call(b,lookup),e=>e.safeCode==='42501');
  mark('wrong membership rejected');await assert.rejects(call(a,{...lookup,membership_id:randomUUID()}),e=>e.safeCode==='42501');
+
+ // Cross-repository integration: actual client adapter, real local Auth and
+ // restricted SQL lookup behind the actual HTTP handler. The local-only service
+ // shim is needed because the production service rejects HTTP Auth issuers.
+ mark('authenticated Personal BPM client integration');
+ const {createAuthPersonalBpmHost}=require(require('node:path').join(process.argv[3],'auth-personal-bpm-host.cjs'));
+ const {createMemoryHandler}=require('../coach-memory-http.cjs');
+ const http=require('node:http');
+ const handler=createMemoryHandler({enabled:true,service:{async run(authorization,input){
+  if(typeof authorization!=='string'||!authorization.startsWith('Bearer '))throw Object.assign(Error('Unauthorized'),{status:401});
+  if(input.action!=='get_bpm_plan')throw Object.assign(Error('Invalid action'),{status:400});
+  try{return {prescription:JSON.parse(await call({token:authorization.slice(7)},input))}}
+  catch(e){throw Object.assign(Error('Lookup denied'),{status:({42501:403,22023:400,28000:401,'HTTP 401':401,'HTTP 403':401})[e.safeCode]||503})}
+ }}});
+ const server=http.createServer(handler);
+ await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
+ let authCallback,requests=0;
+ const localEndpoint='http://127.0.0.1:'+server.address().port+'/v1/coach-memory';
+ const localAuth={
+  onAuthStateChange(fn){authCallback=fn;return {data:{subscription:{unsubscribe(){authCallback=null}}}}},
+  async getUser(token){
+   const response=await fetch(new URL('/auth/v1/user',api),{headers:{apikey:anon,Authorization:'Bearer '+token}});
+   return response.ok?{data:{user:await response.json()},error:null}:{data:{user:null},error:Error('Authentication rejected')};
+  }
+ };
+ const adapter=createAuthPersonalBpmHost({auth:localAuth,enabled:true,endpoint:'https://example.invalid/v1/coach-memory',fetchImpl:(url,options)=>{
+  assert.equal(String(url),'https://example.invalid/v1/coach-memory');
+  requests++;
+  return fetch(localEndpoint,{...options,headers:{...options.headers,Origin:'https://hooporia.mobi'}});
+ }});
+ async function signIn(account){
+  const claims=JSON.parse(Buffer.from(account.token.split('.')[1],'base64url').toString());
+  authCallback('SIGNED_IN',{user:{id:account.id},access_token:account.token,expires_at:claims.exp});
+  const deadline=Date.now()+5000;
+  while(adapter.getSession()?.userId!==account.id&&Date.now()<deadline)await new Promise(r=>setTimeout(r,10));
+  assert.equal(adapter.getSession()?.userId,account.id);
+  adapter.host.select({membershipId:membership,planId:pid});
+ }
+ try{
+  await signIn(a);
+  assert.deepEqual((await adapter.host.client.request('get_bpm_plan',{plan_id:pid,station:'ritnome'})).prescription,{plan_id:pid,membership_id:membership,confirmation_id:cid,bpm:84,station:'ritnome',effective_on:today,stage:'9-10'});
+  mark('authenticated client rejects unauthorized coach');
+  await signIn(b);
+  await assert.rejects(adapter.host.client.request('get_bpm_plan',{plan_id:pid,station:'ritnome'}),e=>e.code==='forbidden');
+  mark('authenticated client logout blocks transport');
+  authCallback('SIGNED_OUT',null);
+  const before=requests;
+  await assert.rejects(adapter.host.client.request('get_bpm_plan',{plan_id:pid,station:'ritnome'}));
+  assert.equal(requests,before);
+  await signIn(a);
+  mark('authenticated client verifies revoked session');
+  sql('delete from auth.sessions where user_id='+quote(a.id));
+  await assert.rejects(adapter.host.client.request('get_bpm_plan',{plan_id:pid,station:'ritnome'}));
+  console.log('PASS: verified Personal BPM client through real local Auth, HTTP handler and restricted prescription lookup');
+ }finally{adapter.dispose();await new Promise(r=>server.close(r))}
+
  mark('revoke synthetic session');sql('delete from auth.sessions where user_id='+quote(a.id));
  mark('revoked session rejected');await assert.rejects(call(a,read),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
  mark('revoked session BPM rejected');await assert.rejects(call(a,{...measurement,request_id:randomUUID()}),e=>['28000','HTTP 401','HTTP 403'].includes(e.safeCode));
