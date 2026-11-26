@@ -175,6 +175,9 @@ app.use('/avisos', require('./avisos.js')({ base: supabase, avisar: async (d) =>
   if (!r.ok) throw new Error('resend ' + r.status + ': ' + (await r.text()).slice(0, 200));
 } }));
 
+// Coach Memory development mount: explicitly disabled; no database connection.
+require('./coach-memory/coach-memory-install.cjs').installCoachMemory(app,{env:{COACH_MEMORY_ENABLED:'false'}});
+
 app.use(express.json());
 
 /* De dónde se aceptan llamadas. Sólo el sitio; nada más tiene por
