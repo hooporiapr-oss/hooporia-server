@@ -11,6 +11,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout validated Personal BPM client
+        uses: actions/checkout@v4
+        with:
+          repository: hooporiapr-oss/fortress-MOBI
+          ref: d1b4ddd55f47d1980429a7e841fa16f65e7a9e12
+          path: .test-fortress
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -70,7 +77,7 @@ jobs:
           create policy cm_local_executor_sessions_read on auth.sessions for select to coach_memory_executor using (true);
           commit;
           SQL
-          node coach-memory/staging/real-auth.test.cjs "$RUNNER_TEMP/cm-local.json"
+          node coach-memory/staging/real-auth.test.cjs "$RUNNER_TEMP/cm-local.json" "$GITHUB_WORKSPACE/.test-fortress/development"
       - name: Collect sanitized local database crash diagnostics
         if: failure()
         run: |
