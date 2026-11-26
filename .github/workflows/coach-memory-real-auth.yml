@@ -1,0 +1,43 @@
+name: Coach Memory real local Auth
+on:
+  pull_request:
+    paths: ['coach-memory/staging/**', '.github/workflows/coach-memory-real-auth.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.39.2
+      - name: Start disposable local Supabase
+        run: |
+          supabase --version
+          supabase init --help
+          supabase start --help
+          supabase status --help
+          supabase init
+          supabase start
+          umask 077
+          supabase status -o json > "$RUNNER_TEMP/cm-local.json"
+      - name: Apply isolated schema and verify local Auth
+        run: |
+          set -eu
+          export PGHOST=127.0.0.1 PGPORT=54322 PGUSER=postgres PGDATABASE=postgres PGPASSWORD=postgres
+          for f in athlete-identity-draft coach-memory-draft access-control-draft enrollment-transaction-draft coach-memory-engine-draft session-authorization-draft backend-role-draft; do
+            psql -X -v ON_ERROR_STOP=1 -f "coach-memory/staging/$f.sql"
+          done
+          node coach-memory/staging/real-auth.test.cjs "$RUNNER_TEMP/cm-local.json"
+      - name: Destroy disposable environment
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/cm-local.json"
+          supabase stop --help
+          supabase stop --no-backup
