@@ -45,7 +45,7 @@ function createMemoryService({supabaseUrl,publishableKey,withTransaction,fetchIm
     const q=await db.query('select coach_memory_private.server_save_plan($1::uuid,$2::uuid,$3::bigint,$4::uuid,$5::date,$6::uuid,$7::jsonb) as id',[principal.actor,principal.session,principal.expires,input.membership_id,input.effective_on,input.request_id,JSON.stringify(input.plan)]);
     if(!validUuid(q.rows[0]?.id))throw fail(503);return {id:q.rows[0].id};
    }
-   const q=await db.query('select * from coach_memory_private.server_read_memory($1::uuid,$2::uuid,$3::bigint,$4::uuid,$5::integer,$6::timestamptz,$7::uuid)',[principal.actor,principal.session,principal.expires,input.membership_id,size,input.before_time??null,input.before_id??null]);return {records:q.rows};
+   q=await db.query('select * from coach_memory_private.server_read_memory($1::uuid,$2::uuid,$3::bigint,$4::uuid,$5::integer,$6::timestamptz,$7::uuid)',[principal.actor,principal.session,principal.expires,input.membership_id,size,input.before_time??null,input.before_id??null]);return {records:q.rows};
   })}catch(e){if(e.status)throw e;if(e.code==='28000')throw fail(401);if(e.code==='42501')throw fail(403);if(e.code==='22023'||e.code==='22007'||e.code==='22008')throw fail(400);throw fail(503)}
  }
  return {run};
