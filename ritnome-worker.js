@@ -19,7 +19,7 @@ function createWorker({base,source,priceId,livemode,clock=()=>Math.floor(Date.no
    if(binding.livemode!==livemode||binding.stripe_subscription_id!==sub||binding.stripe_price_id!==priceId||!Number.isSafeInteger(binding.revision)||binding.revision<0)throw Error('Invalid binding');
    const snap=await source.readVerifiedSnapshot(binding);
    if(snap?.verified!==true)throw Error('Unverified payment evidence');
-   const result=evaluate({binding,subscription:snap.subscription,invoice:snap.invoice,priceId,now:clock()});
+   const result=(binding.billing_status==='review'||snap.reversal===true) ? {decision:'review',billingStatus:'review',paidThrough:binding.paid_through,reason:snap.reversal===true?'payment_reversal_review':'existing_review_hold'} : evaluate({binding,subscription:snap.subscription,invoice:snap.invoice,priceId,now:clock()});
    // SQL prohibits non-active extensions. Hold ambiguous paid/non-active cases for review.
    if(result.decision==='reconcile'&&result.billingStatus!=='active'&&(result.paidThrough==null?null:Date.parse(result.paidThrough))!==(binding.paid_through==null?null:Date.parse(binding.paid_through))){
     result.decision='review';result.billingStatus='review';result.paidThrough=binding.paid_through;result.reason='nonactive_paid_extension_review';
