@@ -7,7 +7,8 @@ const {createStripeSource}=require('./ritnome-stripe-source');
 const {createWorker}=require('./ritnome-worker');
 const {createPendingReader}=require('./ritnome-pending-reader');
 const {createPoller}=require('./ritnome-poller');
-function createRuntime({express,stripe,base,secret,priceId,livemode,enabled,log=console,pollerOptions={}}){
+const {createAtomicInstitutionGate}=require('./ritnome-atomic-institution-gate');
+function createRuntime({express,stripe,base,auth,secret,priceId,livemode,enabled,log=console,pollerOptions={}}){
  if(enabled!==true||livemode!==false)throw Error('Only explicitly enabled sandbox runtime is supported');
  if(typeof express!=='function'||typeof express.raw!=='function'||!stripe?.webhooks||typeof base?.rpc!=='function')throw Error('Missing isolated runtime dependencies');
  const inbox=createInbox(base);
@@ -20,7 +21,8 @@ function createRuntime({express,stripe,base,secret,priceId,livemode,enabled,log=
  // Raw bytes must be received before any JSON parser.
  app.post('/ritnome/stripe/webhook',express.raw({type:'application/json',limit:'256kb'}),createWebhook({stripe,secret,priceId,livemode:false,inbox,log}));
  app.get('/healthz',(_req,res)=>res.status(200).json({service:'ritnome-sandbox',running:poller.isRunning()}));
- // No customer access endpoint in this runtime: sandbox registry cannot bind live licenses.
+ // Sandbox check returns only a test authorization boolean. Never grants real content.
+ if(auth)app.get('/ritnome/sandbox/access-check',createAtomicInstitutionGate({auth,base,priceId,livemode:false}).handler);
  app.use((_req,res)=>res.status(404).json({error:'not_found'}));
  return {app,start:()=>poller.start(),stop:()=>poller.stop(),isRunning:()=>poller.isRunning()};
 }
