@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
-      - run: for t in ritnome-*.test.js; do case "$t" in *.local.test.js) ;; *) node "$t" || exit 1;; esac; done
+      - run: for t in ritnome-*.test.js; do case "$t" in *.local.test.js|*.browser.test.js) ;; *) node "$t" || exit 1;; esac; done
   reporting-foundation:
     runs-on: ubuntu-latest
     services:
@@ -33,7 +33,24 @@ jobs:
       - run: security-review/test/apply-local.sh ritci
       - run: psql -d ritci -f security-review/test/reporting-foundation-tests.sql | tee /tmp/sql.txt; ! grep -q FAIL /tmp/sql.txt
       - run: RITNOME_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ritci node ritnome-reporting.local.test.js
+  browser:
+    # Needs the ritnome-bpm checkout; the default token cannot read another private repo, so this job is advisory.
+    # The browser suite is the release gate when run locally (see security-review/test/README).
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:17
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env: { PGHOST: localhost, PGUSER: postgres, PGPASSWORD: postgres }
+    steps:
       - uses: actions/checkout@v4
-        with: { repository: hooporiapr-oss/ritnome-bpm, ref: conga-institutional, path: site, token: "${{ secrets.GITHUB_TOKEN }}" }
-      - run: npm install --no-save playwright@1 && npx playwright install --with-deps chromium
+      - uses: actions/checkout@v4
+        with: { repository: hooporiapr-oss/ritnome-bpm, ref: conga-institutional, path: site, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund && npm install --no-save pg@8 playwright@1 && npx playwright install --with-deps chromium
+      - run: security-review/test/apply-local.sh ritci
       - run: RITNOME_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ritci RITNOME_BPM_DIR="$PWD/site" node ritnome-institutional.browser.test.js
