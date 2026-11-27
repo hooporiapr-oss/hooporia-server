@@ -5,6 +5,7 @@ const Stripe=require('stripe');
 const {createClient}=require('@supabase/supabase-js');
 const {createRuntime}=require('./ritnome-runtime');
 const {verifyAccess}=require('./ritnome-sandbox-access-selftest');
+const {verifyEnrollment}=require('./ritnome-sandbox-enrollment-selftest');
 const required=name=>{const v=process.env[name];if(!v)throw Error('Missing '+name);return v;};
 let stage='startup';
 async function main(){
@@ -43,11 +44,15 @@ async function main(){
  const probe=await base.from('ritnome_subscription_registry').select('id').limit(1);
  if(probe.error)throw Error('Database probe failed');
  stage='runtime initialization';
- const runtime=createRuntime({express,stripe,base,auth,secret,priceId,livemode:false,enabled:true});
+ const portalConfig=required('RITNOME_SANDBOX_PORTAL_CONFIG');
+ const portal=await stripe.billingPortal.configurations.retrieve(portalConfig);
+ if(portal.id!==portalConfig||portal.livemode!==false||portal.active!==true||portal.features?.subscription_update?.enabled!==false||portal.features?.subscription_cancel?.mode!=='at_period_end')throw Error('Unexpected sandbox portal configuration');
+ const runtime=createRuntime({express,stripe,base,auth,secret,priceId,portalConfig,livemode:false,enabled:true});
  const port=Number(process.env.PORT||10000);
  if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
  stage='HTTP listener';
  const server=runtime.app.listen(port,'0.0.0.0',()=>{runtime.start();console.log('Ritnome sandbox ready');
+ if(process.env.RITNOME_SANDBOX_ENROLLMENT_SELFTEST==='true')verifyEnrollment({base,signInClient:client(),stripe,priceId,port}).then(count=>console.log('Ritnome sandbox enrollment self-test passed: '+count+' checks')).catch(e=>console.error(/^Sandbox enrollment (test failed: [A-Za-z0-9 ,]+|fixture disable failed)$/.test(e?.message)?e.message:'Sandbox enrollment test failed'));
  if(process.env.RITNOME_SANDBOX_ACCESS_SELFTEST==='true')verifyAccess({base,signInClient:client(),port}).then(count=>console.log('Ritnome sandbox access self-test passed: '+count+' checks')).catch(e=>console.error(/^Sandbox access (self-test failed: [A-Za-z0-9 ,]+|fixture cleanup failed)$/.test(e?.message)?e.message:'Sandbox access self-test failed'));
  });
  let stopping=false;
