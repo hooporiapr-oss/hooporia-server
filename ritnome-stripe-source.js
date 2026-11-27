@@ -33,7 +33,9 @@ function createStripeSource({stripe,priceId,livemode}){
   const pi=await stripe.paymentIntents.retrieve(piId,{expand:['latest_charge']});
   const ch=pi.latest_charge;
   requireEvidence(pi.id===piId&&pi.livemode===livemode&&idOf(pi.customer)===binding.stripe_customer_id&&pi.currency==='usd'&&pi.status==='succeeded'&&pi.amount_received===i.total,'payment intent');
-  requireEvidence(ch&&typeof ch==='object'&&ch.livemode===livemode&&idOf(ch.payment_intent)===piId&&idOf(ch.customer)===binding.stripe_customer_id&&ch.currency==='usd'&&ch.status==='succeeded'&&ch.paid===true&&ch.captured===true&&ch.amount_captured===i.total&&ch.refunded===false&&ch.amount_refunded===0&&ch.disputed===false,'charge or reversal');
+  requireEvidence(ch&&typeof ch==='object'&&ch.livemode===livemode&&idOf(ch.payment_intent)===piId&&idOf(ch.customer)===binding.stripe_customer_id&&ch.currency==='usd'&&ch.status==='succeeded'&&ch.paid===true&&ch.captured===true&&ch.amount_captured===i.total ,'charge identity or settlement');
+  requireEvidence(typeof ch.refunded==='boolean'&&Number.isSafeInteger(ch.amount_refunded)&&ch.amount_refunded>=0&&typeof ch.disputed==='boolean','reversal evidence');
+  if(ch.refunded||ch.amount_refunded>0||ch.disputed)return {verified:true,subscription:s,invoice:i,reversal:true};
   return {verified:true,subscription:s,invoice:i};
  }};
 }
