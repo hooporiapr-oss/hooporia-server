@@ -1,0 +1,7 @@
+# Hosted customer checkout — verified 2026-11-27
+
+The user completed the actual Stripe-hosted test checkout from the institutional enrollment screen. Independent Stripe API verification: session complete, payment paid, livemode false, one $149 monthly item, automatic tax complete, $17.14 Puerto Rico IVU, total $166.14. Invoice paid in full, remaining $0, subscription active. The actual user-operated checkout is not a simulated response.
+
+Supabase verified that the enrollment bound to the same Stripe customer and subscription, registry revision 2, active billing, paid through 2026-12-27 18:54:35 UTC. The invoice.paid and customer.subscription.updated events both processed with verified_paid_period and matching audit dates at 18:55:11 UTC. Owner membership active; actual existing Auth session passed the atomic entitlement check. Prior deployed 35-check staff/content integration test verified the protected desk independently.
+
+Sandbox checkout-to-entitlement acceptance passed. Browser interaction with the billing portal was not observed. Test account intentionally remains enabled temporarily for inspecting the result; disable and revoke after inspection. No real charges, live account changes, production deployment or main merge. Production release still requires approved live configuration, institutional invitation process, final terms and security review. Public demos remain public.
