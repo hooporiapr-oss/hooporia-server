@@ -25,6 +25,7 @@ function createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig
  app.disable('x-powered-by');
  // Raw bytes must be received before any JSON parser.
  app.post('/ritnome/stripe/webhook',express.raw({type:'application/json',limit:'256kb'}),createWebhook({stripe,secret,priceId,livemode:true,inbox,log}));
+ app.get('/ritnome-institutional.js',(_req,res)=>{res.set('Cache-Control','public, max-age=300');res.set('X-Content-Type-Options','nosniff');res.type('application/javascript');res.sendFile(path.join(__dirname,'ritnome-institutional.js'));});
  app.get('/healthz',(_req,res)=>res.status(200).json({service:'ritnome-institutional',running:poller.isRunning()}));
  // Verify every request against the live registry, membership and session.
  let reporting=null;
