@@ -9,6 +9,7 @@ const {createPendingReader}=require('./ritnome-pending-reader');
 const {createPoller}=require('./ritnome-poller');
 const {createAtomicInstitutionGate}=require('./ritnome-atomic-institution-gate');
 const {createEnrollment}=require('./ritnome-enrollment');
+const {createActivityDesk}=require('./ritnome-activity-desk');
 const path=require('node:path');
 function createRuntime({express,stripe,base,auth,secret,priceId,portalConfig,livemode,enabled,log=console,pollerOptions={}}){
  if(enabled!==true||livemode!==false)throw Error('Only explicitly enabled sandbox runtime is supported');
@@ -24,7 +25,7 @@ function createRuntime({express,stripe,base,auth,secret,priceId,portalConfig,liv
  app.post('/ritnome/stripe/webhook',express.raw({type:'application/json',limit:'256kb'}),createWebhook({stripe,secret,priceId,livemode:false,inbox,log}));
  app.get('/healthz',(_req,res)=>res.status(200).json({service:'ritnome-sandbox',running:poller.isRunning()}));
  // Sandbox check returns only a test authorization boolean. Never grants real content.
- if(auth)app.get('/ritnome/sandbox/access-check',createAtomicInstitutionGate({auth,base,priceId,livemode:false}).handler);
+ if(auth){const gate=createAtomicInstitutionGate({auth,base,priceId,livemode:false});app.get('/ritnome/sandbox/access-check',gate.handler);app.get('/ritnome/sandbox/activity-desk',createActivityDesk(gate));}
  if(auth&&portalConfig){
   const enrollment=createEnrollment({stripe,base,auth,priceId,portalConfig,livemode:false,returnUrl:'https://ritnome-sandbox-api.onrender.com/ritnome/sandbox/enroll'});
   const pageHeaders=res=>{res.set('Cache-Control','no-store');res.set('Referrer-Policy','no-referrer');res.set('X-Content-Type-Options','nosniff');res.set('X-Robots-Tag','noindex, nofollow');res.set('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self' https://ogmpndblmcmpqzjoxnfu.supabase.co; form-action 'none'; frame-ancestors 'none'; base-uri 'none'");};
