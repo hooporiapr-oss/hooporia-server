@@ -25,12 +25,11 @@ async function run(){
   ['wrong invoice payment',f=>f.p.data[0].invoice='in_other'],
   ['declined payment',f=>f.pi.status='requires_payment_method'],
   ['wrong intent customer',f=>f.pi.customer='cus_other'],
-  ['refund',f=>f.pi.latest_charge.amount_refunded=100],
-  ['dispute',f=>f.pi.latest_charge.disputed=true],
   ['uncaptured',f=>f.pi.latest_charge.captured=false]
  ];
  for(const [name,mutate,binding] of cases){f=fixture();mutate(f);await assert.rejects(()=>read(f,binding||b),/Ritnome payment evidence/,name);}
+ for(const mutate of [f=>f.pi.latest_charge.amount_refunded=100,f=>f.pi.latest_charge.refunded=true,f=>f.pi.latest_charge.disputed=true]){f=fixture();mutate(f);assert.equal((await read(f)).reversal,true);}
  await assert.rejects(()=>read(fixture(),b,false),/SDK unavailable/);
- console.log('23 Stripe source checks passed');
+ console.log('24 Stripe source checks passed');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});
