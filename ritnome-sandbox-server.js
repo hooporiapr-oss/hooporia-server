@@ -6,6 +6,15 @@ const {createClient}=require('@supabase/supabase-js');
 const {createRuntime}=require('./ritnome-runtime');
 const required=name=>{const v=process.env[name];if(!v)throw Error('Missing '+name);return v;};
 async function main(){
+ if(process.env.RITNOME_SANDBOX_ENABLED==='false'){
+  const app=express();app.disable('x-powered-by');
+  app.get('/healthz',(_req,res)=>res.status(200).json({service:'ritnome-sandbox',mode:'setup',running:false}));
+  app.use((_req,res)=>res.status(503).json({error:'sandbox_not_enabled'}));
+  const port=Number(process.env.PORT||10000);
+  if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
+  app.listen(port,'0.0.0.0',()=>console.log('Ritnome sandbox setup only'));
+  return;
+ }
  if(process.env.RITNOME_SANDBOX_ENABLED!=='true')throw Error('Sandbox not enabled');
  const url=required('RITNOME_SANDBOX_SUPABASE_URL');
  if(url!=='https://ogmpndblmcmpqzjoxnfu.supabase.co')throw Error('Unexpected sandbox database');
