@@ -31,6 +31,8 @@ async function run(){
  f=fixture();await assert.rejects(()=>f.worker.one('invalid'),/Invalid event ID/);
  f=fixture();f.reversal=true;f.b.paid_through=date;assert.equal(await call(f),'committed');assert.equal(f.calls[0].p_status,'review');assert.equal(f.calls[0].p_paid_through,date);
  f=fixture();f.b.billing_status='review';f.b.paid_through=date;assert.equal(await call(f),'committed');assert.equal(f.calls[0].p_reason,'existing_review_hold');assert.equal(f.calls[0].p_status,'review');
- console.log('21 worker scenarios passed');
+ for(const event of ['charge.refunded','charge.dispute.created']){f=fixture();f.e.event_type=event;f.b.paid_through=date;f.sourceError=true;assert.equal(await call(f),'committed');assert.equal(f.calls[0].p_status,'review');assert.equal(f.calls[0].p_paid_through,date);assert.equal(f.calls[0].p_reason,'payment_reversal_review');assert.equal(f.reads,0);}
+ f=fixture();f.b.billing_status='review';f.b.paid_through=date;f.sourceError=true;assert.equal(await call(f),'committed');assert.equal(f.reads,0);
+ console.log('24 worker scenarios passed');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});
