@@ -10,6 +10,7 @@ const {createPoller}=require('./ritnome-poller');
 const {createAtomicInstitutionGate}=require('./ritnome-atomic-institution-gate');
 const {createEnrollment}=require('./ritnome-live-enrollment');
 const {createActivityDesk}=require('./ritnome-activity-desk');
+const {createReporting,mountReporting}=require('./ritnome-reporting');
 const path=require('node:path');
 function createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig,supabaseUrl,publishableKey,livemode,enabled,log=console,pollerOptions={}}){
  if(enabled!==true||livemode!==true)throw Error('Only explicitly enabled live runtime is supported');
@@ -26,7 +27,9 @@ function createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig
  app.post('/ritnome/stripe/webhook',express.raw({type:'application/json',limit:'256kb'}),createWebhook({stripe,secret,priceId,livemode:true,inbox,log}));
  app.get('/healthz',(_req,res)=>res.status(200).json({service:'ritnome-institutional',running:poller.isRunning()}));
  // Verify every request against the live registry, membership and session.
- if(auth){const gate=createAtomicInstitutionGate({auth,base,priceId,livemode:true});app.get('/access-check',gate.handler);app.get('/activity-desk',createActivityDesk(gate));}
+ let reporting=null;
+ if(auth){const gate=createAtomicInstitutionGate({auth,base,priceId,livemode:true});app.get('/access-check',gate.handler);app.get('/activity-desk',createActivityDesk(gate));
+  reporting=createReporting({base,auth,priceId,livemode:true,log});mountReporting(app,express,reporting);}
  if(auth&&portalConfig){
   const enrollment=createEnrollment({stripe,base,auth,priceId,portalConfig,livemode:true,returnUrl:'https://institutional.ritnome.com/enroll'});
   const pageHeaders=res=>{res.set('Cache-Control','no-store');res.set('Referrer-Policy','no-referrer');res.set('X-Content-Type-Options','nosniff');res.set('X-Robots-Tag','noindex, nofollow');res.set('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self' "+supabaseUrl+"; form-action 'none'; frame-ancestors 'none'; base-uri 'none'");};
@@ -38,6 +41,9 @@ function createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig
   app.post('/enrollment/portal',enrollment.handler('portal'));
  }
  app.use((_req,res)=>res.status(404).json({error:'not_found'}));
- return {app,start:()=>poller.start(),stop:()=>poller.stop(),isRunning:()=>poller.isRunning()};
+ let retentionTimer=null;
+ const startRetention=()=>{if(!reporting||retentionTimer)return;const tick=async()=>{const r=await reporting.retention();if(r)log.error('retention purge: '+JSON.stringify(r));};retentionTimer=setInterval(tick,24*3600*1000);if(typeof retentionTimer.unref==='function')retentionTimer.unref();};
+ const stopRetention=()=>{if(retentionTimer){clearInterval(retentionTimer);retentionTimer=null;}};
+ return {app,start:()=>{startRetention();return poller.start();},stop:()=>{stopRetention();return poller.stop();},isRunning:()=>poller.isRunning()};
 }
 module.exports={createLiveRuntime};
