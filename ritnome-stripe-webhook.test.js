@@ -7,7 +7,11 @@ async function run() {
     created: 12345, data: { object: { subscription: subId } } };
   const seen = new Map(); let calls=0; let tracked=false; let fail=false;
   let price=priceId;
+  let charge={id:'ch_fixture',livemode:false,customer:'cus_fixture',invoice:'in_fixture',payment_intent:'pi_fixture'};
+  let invoice={id:'in_fixture',livemode:false,customer:'cus_fixture',subscription:subId};
+  let pi={id:'pi_fixture',livemode:false,customer:'cus_fixture',invoice:'in_fixture'};
   const stripe = {
+    charges:{retrieve:async()=>charge},invoices:{retrieve:async()=>invoice},paymentIntents:{retrieve:async()=>pi},
     webhooks: { constructEvent: (body, signature, secret) => {
       if (signature !== 'valid' || secret !== 'whsec_mock') throw new Error('bad signature');
       return body;
@@ -46,6 +50,20 @@ async function run() {
   const deleted={...base,id:'evt_deleted',type:'customer.subscription.deleted',data:{object:{id:subId}}};
   assert.equal((await invoke(deleted)).body,'Accepted');
   assert.equal(calls,previous);
+  const refund={...base,id:'evt_refund',type:'charge.refunded',data:{object:{id:'ch_fixture'}}};
+  const dispute={...base,id:'evt_dispute',type:'charge.dispute.created',data:{object:{id:'dp_fixture',charge:'ch_fixture'}}};
+  assert.equal((await invoke(refund)).body,'Accepted');
+  assert.equal(seen.get(refund.id).subscription_id,subId);
+  assert.equal((await invoke(dispute)).body,'Accepted');
+  assert.equal(seen.get(dispute.id).event_type,'charge.dispute.created');
+  charge.livemode=true;assert.equal((await invoke(refund)).code,503);charge.livemode=false;
+  invoice.customer='cus_other';assert.equal((await invoke(refund)).code,503);invoice.customer='cus_fixture';
+  charge.invoice=null;assert.equal((await invoke(refund)).body,'Accepted');
+  pi.invoice=null;assert.equal((await invoke(refund)).body,'Ignored');
+  pi.invoice='in_fixture';charge.invoice='in_fixture';
+  assert.equal((await invoke(refund,'bad')).code,400);
+  assert.equal((await invoke({...dispute,data:{object:{charge:'bad'}}})).code,400);
+  tracked=false;price='price_other';assert.equal((await invoke(refund)).body,'Ignored');tracked=true;
   fail=true;
   assert.equal((await invoke({...base,id:'evt_retry'})).code,503);
   assert.equal(seen.has('evt_retry'),false);
