@@ -11,9 +11,10 @@ const {createAtomicInstitutionGate}=require('./ritnome-atomic-institution-gate')
 const {createEnrollment}=require('./ritnome-live-enrollment');
 const {createActivityDesk}=require('./ritnome-activity-desk');
 const path=require('node:path');
-function createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig,livemode,enabled,log=console,pollerOptions={}}){
+function createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig,supabaseUrl,publishableKey,livemode,enabled,log=console,pollerOptions={}}){
  if(enabled!==true||livemode!==true)throw Error('Only explicitly enabled live runtime is supported');
  if(typeof express!=='function'||typeof express.raw!=='function'||!stripe?.webhooks||typeof base?.rpc!=='function')throw Error('Missing isolated runtime dependencies');
+ if(!/^https:\/\/[a-z]{20}\.supabase\.co$/.test(supabaseUrl||'')||/sdaphocueugzfvjovuxd|ogmpndblmcmpqzjoxnfu/.test(supabaseUrl)||!/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey||''))throw Error('Dedicated public Auth configuration required');
  const inbox=createInbox(base);
  const source=createStripeSource({stripe,priceId,livemode:true});
  const worker=createWorker({base,source,priceId,livemode:true});
@@ -28,7 +29,8 @@ function createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig
  if(auth){const gate=createAtomicInstitutionGate({auth,base,priceId,livemode:true});app.get('/access-check',gate.handler);app.get('/activity-desk',createActivityDesk(gate));}
  if(auth&&portalConfig){
   const enrollment=createEnrollment({stripe,base,auth,priceId,portalConfig,livemode:true,returnUrl:'https://institutional.ritnome.com/enroll'});
-  const pageHeaders=res=>{res.set('Cache-Control','no-store');res.set('Referrer-Policy','no-referrer');res.set('X-Content-Type-Options','nosniff');res.set('X-Robots-Tag','noindex, nofollow');res.set('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self' https://sdaphocueugzfvjovuxd.supabase.co; form-action 'none'; frame-ancestors 'none'; base-uri 'none'");};
+  const pageHeaders=res=>{res.set('Cache-Control','no-store');res.set('Referrer-Policy','no-referrer');res.set('X-Content-Type-Options','nosniff');res.set('X-Robots-Tag','noindex, nofollow');res.set('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self' "+supabaseUrl+"; form-action 'none'; frame-ancestors 'none'; base-uri 'none'");};
+  app.get('/enroll-config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({url:supabaseUrl,publicKey:publishableKey});});
   app.get('/enroll',(_req,res)=>{pageHeaders(res);res.sendFile(path.join(__dirname,'ritnome-live-enroll.html'));});
   app.get('/enroll.js',(_req,res)=>{pageHeaders(res);res.sendFile(path.join(__dirname,'ritnome-live-enroll.js'));});
   app.get('/enrollment/status',enrollment.handler('status'));
