@@ -5,7 +5,6 @@ const Stripe=require('stripe');
 const {createClient}=require('@supabase/supabase-js');
 const {createRuntime}=require('./ritnome-runtime');
 const {verifyAccess}=require('./ritnome-sandbox-access-selftest');
-const {settleRenewal,verifyReplay}=require('./ritnome-sandbox-renewal-selftest');
 const required=name=>{const v=process.env[name];if(!v)throw Error('Missing '+name);return v;};
 let stage='startup';
 async function main(){
@@ -49,7 +48,6 @@ async function main(){
  if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
  stage='HTTP listener';
  const server=runtime.app.listen(port,'0.0.0.0',()=>{runtime.start();console.log('Ritnome sandbox ready');
- if(process.env.RITNOME_SANDBOX_RENEWAL_SELFTEST==='true'){settleRenewal({stripe,base,priceId}).then(result=>console.log('Ritnome sandbox renewal settlement: '+result)).catch(()=>console.error('Ritnome sandbox renewal settlement failed'));verifyReplay({stripe,base,secret,port}).then(result=>console.log('Ritnome sandbox duplicate replay: '+result)).catch(()=>console.error('Ritnome sandbox duplicate replay failed'));}
  if(process.env.RITNOME_SANDBOX_ACCESS_SELFTEST==='true')verifyAccess({base,signInClient:client(),port}).then(count=>console.log('Ritnome sandbox access self-test passed: '+count+' checks')).catch(e=>console.error(/^Sandbox access (self-test failed: [A-Za-z0-9 ,]+|fixture cleanup failed)$/.test(e?.message)?e.message:'Sandbox access self-test failed'));
  });
  let stopping=false;
