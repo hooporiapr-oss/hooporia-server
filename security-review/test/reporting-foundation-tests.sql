@@ -12,7 +12,7 @@ CREATE OR REPLACE FUNCTION pg_temp.check(n text, v boolean) RETURNS void LANGUAG
 -- fixtures
 INSERT INTO auth.users(id,email) VALUES
  ('11111111-1111-1111-1111-111111111111','owner-a@test'),('22222222-2222-2222-2222-222222222222','staff-a@test'),
- ('33333333-3333-3333-3333-333333333333','owner-b@test'),('44444444-4444-4444-4444-444444444444','staff-b@test');
+ ('33333333-3333-3333-3333-333333333333','owner-b@test'),('44444444-4444-4444-4444-444444444444','staff-b@test'),('55555555-5555-5555-5555-555555555555','new-staff@test');
 INSERT INTO auth.sessions(id,user_id) VALUES
  ('aaaa1111-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111'),('aaaa2222-0000-0000-0000-000000000002','22222222-2222-2222-2222-222222222222'),
  ('bbbb3333-0000-0000-0000-000000000003','33333333-3333-3333-3333-333333333333'),('bbbb4444-0000-0000-0000-000000000004','44444444-4444-4444-4444-444444444444');
@@ -115,12 +115,23 @@ SELECT pg_temp.check('unlock by the same user and auth session', public.ritnome_
 UPDATE public.ritnome_facility_session SET expires_at=now()-interval '1 second' WHERE id=(SELECT session_id FROM t_s WHERE who='A_staff');
 SELECT pg_temp.check('eight-hour expiry ends the session', (SELECT NOT ok AND reason='expired' FROM public.ritnome_rep_session_check((SELECT session_id FROM t_s WHERE who='A_staff'),:'P')));
 
+-- 11. staff management (owner only)
+INSERT INTO t_s SELECT 'B_owner', * FROM public.ritnome_rep_session_open(true,'33333333-3333-3333-3333-333333333333','bbbb3333-0000-0000-0000-000000000003',:'P');
+INSERT INTO t_s SELECT 'A_owner2', * FROM public.ritnome_rep_session_open(true,'11111111-1111-1111-1111-111111111111','aaaa1111-0000-0000-0000-000000000001',:'P');
+SELECT pg_temp.check('facilitator cannot add staff', public.ritnome_rep_staff_add((SELECT session_id FROM t_s WHERE who='B_staff'),:'P','55555555-5555-5555-5555-555555555555','facilitator')='denied');
+SELECT pg_temp.check('owner B adds a manager', public.ritnome_rep_staff_add((SELECT session_id FROM t_s WHERE who='B_owner'),:'P','55555555-5555-5555-5555-555555555555','manager')='ok');
+SELECT pg_temp.check('owner A cannot claim a user already in facility B', public.ritnome_rep_staff_add((SELECT session_id FROM t_s WHERE who='A_owner2'),:'P','55555555-5555-5555-5555-555555555555','facilitator')='other_facility');
+SELECT pg_temp.check('staff list scoped to facility B and includes the new manager', (SELECT count(*)=3 AND bool_or(role='manager' AND email='new-staff@test') FROM public.ritnome_rep_staff_list((SELECT session_id FROM t_s WHERE who='B_owner'),:'P')));
+SELECT pg_temp.check('owner cannot deactivate self', NOT public.ritnome_rep_staff_set_active((SELECT session_id FROM t_s WHERE who='B_owner'),:'P','33333333-3333-3333-3333-333333333333',false));
+SELECT pg_temp.check('owner deactivates the manager', public.ritnome_rep_staff_set_active((SELECT session_id FROM t_s WHERE who='B_owner'),:'P','55555555-5555-5555-5555-555555555555',false));
+SELECT pg_temp.check('deactivated manager membership inactive', (SELECT NOT active FROM public.ritnome_institution_memberships WHERE user_id='55555555-5555-5555-5555-555555555555'));
+
 -- 8. revocation is immediate: deactivate B staff membership, then end B enrollment
 UPDATE public.ritnome_institution_memberships SET active=false WHERE user_id='44444444-4444-4444-4444-444444444444';
 SELECT pg_temp.check('deactivated staff membership: next check revoked', (SELECT NOT ok AND reason='revoked' FROM public.ritnome_rep_session_check((SELECT session_id FROM t_s WHERE who='B_staff'),:'P')));
 SELECT pg_temp.check('revoked token cannot report', (SELECT outcome='denied' FROM public.ritnome_rep_report(:'TB','https://ritnome.com',:'P','99990000-0000-0000-0000-000000000009',1,'start','{}')));
 UPDATE public.ritnome_subscription_registry SET billing_status='canceled', paid_through=now()-interval '1 day' WHERE facility_id='facaaaaa-0000-0000-0000-00000000000a';
-SELECT pg_temp.check('lapsed subscription: owner session revoked on next request', (SELECT NOT ok AND reason='revoked' FROM public.ritnome_rep_session_check((SELECT session_id FROM t_s WHERE who='A_owner'),:'P')));
+SELECT pg_temp.check('lapsed subscription: owner session revoked on next request', (SELECT NOT ok AND reason='revoked' FROM public.ritnome_rep_session_check((SELECT session_id FROM t_s WHERE who='A_owner2'),:'P')));
 SELECT pg_temp.check('lapsed subscription: new session refused', NOT EXISTS(SELECT 1 FROM public.ritnome_rep_session_open(true,'11111111-1111-1111-1111-111111111111','aaaa1111-0000-0000-0000-000000000001',:'P')));
 
 -- 9. retention purge records an audit row

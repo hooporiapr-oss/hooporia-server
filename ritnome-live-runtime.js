@@ -37,6 +37,8 @@ function createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig
   app.get('/enroll-config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({url:supabaseUrl,publicKey:publishableKey});});
   app.get('/enroll',(_req,res)=>{pageHeaders(res);res.sendFile(path.join(__dirname,'ritnome-live-enroll.html'));});
   app.get('/enroll.js',(_req,res)=>{pageHeaders(res);res.sendFile(path.join(__dirname,'ritnome-live-enroll.js'));});
+  app.get('/desk',(_req,res)=>{pageHeaders(res);res.sendFile(path.join(__dirname,'ritnome-desk.html'));});
+  app.get('/desk.js',(_req,res)=>{pageHeaders(res);res.sendFile(path.join(__dirname,'ritnome-desk.js'));});
   app.get('/enrollment/status',enrollment.handler('status'));
   app.post('/enrollment/start',enrollment.handler('start'));
   app.post('/enrollment/portal',enrollment.handler('portal'));

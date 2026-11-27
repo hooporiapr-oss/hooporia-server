@@ -96,6 +96,24 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
  h.handleCreate=wrap(async(req,res)=>{const c=await requireSession(req,true);const id=await rpc('ritnome_rep_handle_create',{p_session:c.id,p_price:priceId});if(!uuid.test(id||''))throw fail(403,'handles_off');res.status(200).json({ok:true,handle_id:id});});
  h.handleRetire=wrap(async(req,res)=>{const c=await requireSession(req,true);const id=String(req.body?.handle_id||'');if(!uuid.test(id))throw fail(400,'invalid');const ok=await rpc('ritnome_rep_handle_retire',{p_session:c.id,p_price:priceId,p_handle:id});res.status(ok===true?200:404).json({ok:ok===true});});
  h.individual=wrap(async(req,res)=>{const c=await requireSession(req,true);const id=String(req.query?.handle||'');if(!uuid.test(id))throw fail(400,'invalid');const d=await rpc('ritnome_rep_individual',{p_session:c.id,p_price:priceId,p_handle:id});if(d?.ok!==true)throw fail(403,d?.reason||'handles_off');res.status(200).json(d);});
+ // Staff (owner only): create or attach an account in the dedicated project and give it a role. A temporary password is shown once to the owner.
+ h.staffList=wrap(async(req,res)=>{const c=await requireSession(req,false);if(!['owner','manager'].includes(c.role))throw fail(403,'role');res.status(200).json({ok:true,staff:await rpc('ritnome_rep_staff_list',{p_session:c.id,p_price:priceId})||[]});});
+ h.staffAdd=wrap(async(req,res)=>{
+  const c=await requireSession(req,true);if(c.role!=='owner')throw fail(403,'role');
+  const email=String(req.body?.email||'').trim().toLowerCase(),role=String(req.body?.role||'facilitator');
+  if(!/^[^\s@]{1,64}@[^\s@]{1,255}$/.test(email)||!['manager','facilitator'].includes(role))throw fail(400,'invalid');
+  if(typeof auth.admin?.createUser!=='function')throw fail(503,'unavailable');
+  let userId=null,temp=null;
+  const pw=crypto.randomBytes(9).toString('base64url');
+  const made=await auth.admin.createUser({email,password:pw,email_confirm:true});
+  if(!made.error&&made.data?.user?.id){userId=made.data.user.id;temp=pw;}
+  else{if(typeof auth.admin.generateLink!=='function')throw fail(503,'unavailable');const link=await auth.admin.generateLink({type:'magiclink',email});if(link.error||!link.data?.user?.id)throw fail(503,'unavailable');userId=link.data.user.id;}
+  const r=await rpc('ritnome_rep_staff_add',{p_session:c.id,p_price:priceId,p_user:userId,p_role:role});
+  if(r!=='ok')throw fail(r==='other_facility'?409:r==='denied'?403:400,r);
+  res.status(200).json({ok:true,user_id:userId,role,temporary_password:temp});
+ });
+ h.staffActive=wrap(async(req,res)=>{const c=await requireSession(req,true);if(c.role!=='owner')throw fail(403,'role');const id=String(req.body?.user_id||'');if(!uuid.test(id)||typeof req.body?.active!=='boolean')throw fail(400,'invalid');
+  const ok=await rpc('ritnome_rep_staff_set_active',{p_session:c.id,p_price:priceId,p_user:id,p_active:req.body.active});res.status(ok===true?200:404).json({ok:ok===true});});
  h.retention=async()=>{try{const r=await rpc('ritnome_rep_retention_purge',{});return Array.isArray(r)?r[0]:r;}catch(e){log.error('retention purge failed');return null;}};
  return h;
 }
@@ -118,5 +136,8 @@ function mountReporting(app,express,reporting){
  app.post('/reporting/handles',json,reporting.handleCreate);
  app.post('/reporting/handles/retire',json,reporting.handleRetire);
  app.get('/reporting/individual',reporting.individual);
+ app.get('/reporting/staff',reporting.staffList);
+ app.post('/reporting/staff',json,reporting.staffAdd);
+ app.post('/reporting/staff/active',json,reporting.staffActive);
 }
 module.exports={createReporting,mountReporting,COOKIE};
