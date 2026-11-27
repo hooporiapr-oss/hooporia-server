@@ -48,3 +48,10 @@ Enrollment is by invitation; the browser can never pick a price, customer or fac
 
 ## Rollback
 `RITNOME_LIVE_ENABLED=false` + redeploy returns the service to setup mode (503) with no data change. Nothing in this release touches reactific-licenses or any other service.
+
+## Institutional reporting and desk (Phases 1–3)
+- Phase 1 (reporting foundation) is applied to ritnome-production and deployed (2026-11-27). Migration: `security-review/ritnome-reporting-foundation.sql`.
+- Phase 2 (shared script `ritnome-institutional.js` + Conga Party integration) and Phase 3 (desk at `/desk`, staff management) are on branch `ritnome-institutional-live-candidate`; staff management SQL `security-review/ritnome-staff-management.sql` is **not yet applied** to production.
+- Release steps for Phases 2–3 (after "ok to push"): (1) apply `ritnome-staff-management.sql` to ritnome-production; (2) deploy `ritnome-institutional` from the branch; (3) merge ritnome-bpm `conga-institutional` → main (static site auto-deploys); (4) set `available:true` for `conga-party` in `ritnome-activity-catalog.js` and redeploy; (5) verify: `/desk` sign-in with a facility account, Start Conga Party from the library, run appears in Facilitator View.
+- Evidence per checkpoint: SQL suite 64/64, service suite 35/35, script browser suite 14/14, desk browser suite 21/21 (local, disposable Postgres; see `security-review/test/README.md`).
+- Rollback: `RITNOME_LIVE_ENABLED=false` disables the whole institutional service; the reporting tables keep their data (never dropped).
