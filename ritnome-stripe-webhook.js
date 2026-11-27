@@ -2,7 +2,8 @@
 // Standalone intake only. Not mounted by server.js until a durable inbox exists.
 const EVENT_TYPES = new Set([
   'invoice.paid', 'invoice.payment_failed',
-  'customer.subscription.updated', 'customer.subscription.deleted'
+  'customer.subscription.updated', 'customer.subscription.deleted',
+  'charge.refunded', 'charge.dispute.created'
 ]);
 const idOf = value => typeof value === 'string' ? value : value && value.id;
 function subscriptionId(event) {
@@ -29,13 +30,32 @@ function createWebhook({ stripe, secret, priceId, livemode, inbox, log = console
     } catch (_) { return res.status(400).send('Invalid webhook signature'); }
     if (event.livemode !== livemode || event.account) return res.status(400).send('Unexpected Stripe context');
     if (!EVENT_TYPES.has(event.type)) return res.status(200).send('Ignored');
-    const subId = subscriptionId(event);
+    try {
+    const reversal = event.type==='charge.refunded'||event.type==='charge.dispute.created';
+    let subId = subscriptionId(event);
+    if(reversal){
+      const object=event.data?.object;
+      const chargeId=event.type==='charge.refunded'?idOf(object):idOf(object?.charge);
+      if(!/^ch_[A-Za-z0-9]+$/.test(chargeId||''))return res.status(400).send('Invalid charge reference');
+      const charge=await stripe.charges.retrieve(chargeId);
+      if(charge.id!==chargeId||charge.livemode!==livemode)throw Error('Charge context mismatch');
+      let invoiceId=idOf(charge.invoice);
+      if(!invoiceId&&idOf(charge.payment_intent)){
+        const pi=await stripe.paymentIntents.retrieve(idOf(charge.payment_intent));
+        if(pi.id!==idOf(charge.payment_intent)||pi.livemode!==livemode||idOf(pi.customer)!==idOf(charge.customer))throw Error('Payment context mismatch');
+        invoiceId=idOf(pi.invoice);
+      }
+      if(!invoiceId)return res.status(200).send('Ignored');
+      const invoice=await stripe.invoices.retrieve(invoiceId);
+      if(invoice.id!==invoiceId||invoice.livemode!==livemode||idOf(invoice.customer)!==idOf(charge.customer))throw Error('Invoice context mismatch');
+      subId=idOf(invoice.parent?.subscription_details?.subscription)||idOf(invoice.subscription);
+      if(!subId)return res.status(200).send('Ignored');
+    }
     if (!subId) {
       // Legitimate one-time invoices are not subscription events.
       if (event.type.startsWith('invoice.')) return res.status(200).send('Ignored');
       return res.status(400).send('Missing subscription reference');
     }
-    try {
       if (!/^sub_[A-Za-z0-9]+$/.test(subId) || !/^evt_[A-Za-z0-9]+$/.test(event.id) ||
           !Number.isSafeInteger(event.created)) return res.status(400).send('Invalid event reference');
       const tracked = await inbox.isTracked(subId, livemode);
