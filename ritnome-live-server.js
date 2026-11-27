@@ -16,7 +16,10 @@ async function main(){
   return;
  }
  const url=required('RITNOME_LIVE_SUPABASE_URL');
- if(url!=='https://sdaphocueugzfvjovuxd.supabase.co')throw Error('Unexpected live database');
+ const ref=required('RITNOME_LIVE_PROJECT_REF');
+ if(!/^[a-z]{20}$/.test(ref)||['sdaphocueugzfvjovuxd','ogmpndblmcmpqzjoxnfu'].includes(ref)||url!=='https://'+ref+'.supabase.co')throw Error('Dedicated live database required');
+ const publishableKey=required('RITNOME_LIVE_PUBLISHABLE_KEY');
+ if(!/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey))throw Error('Publishable key required');
  const key=required('RITNOME_LIVE_STRIPE_KEY');
  if(!/^(sk|rk)_live_/.test(key))throw Error('Live Stripe credential required');
  const priceId=required('RITNOME_LIVE_PRICE_ID');
@@ -31,10 +34,10 @@ async function main(){
  if(price.id!==priceId||price.livemode!==true||price.active!==true||price.currency!=='usd'||price.unit_amount!==14900||price.recurring?.interval!=='month'||price.recurring?.interval_count!==1||price.tax_behavior!=='exclusive')throw Error('Unexpected live price');
  const portalConfig=required('RITNOME_LIVE_PORTAL_CONFIG'),portal=await stripe.billingPortal.configurations.retrieve(portalConfig);
  if(portal.id!==portalConfig||portal.livemode!==true||portal.active!==true||portal.features?.subscription_update?.enabled!==false||portal.features?.subscription_cancel?.mode!=='at_period_end'||portal.features?.payment_method_update?.enabled!==true||portal.features?.invoice_history?.enabled!==true)throw Error('Unexpected live portal');
- // Both new schema and legacy RLS release must be verified by the DB readiness RPC.
+ // The new dedicated schema and isolation must be verified by the DB readiness RPC.
  const ready=await base.rpc('ritnome_live_release_ready');
  if(ready.error||ready.data!==true)throw Error('Database release not ready');
- const runtime=createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig,livemode:true,enabled:true});
+ const runtime=createLiveRuntime({express,stripe,base,auth,secret,priceId,portalConfig,supabaseUrl:url,publishableKey,livemode:true,enabled:true});
  const server=runtime.app.listen(port,'0.0.0.0',()=>{runtime.start();console.log('Ritnome institutional ready');});
  let stopping=false;
  async function shutdown(){if(stopping)return;stopping=true;const deadline=setTimeout(()=>process.exit(1),20000);deadline.unref();server.close();await runtime.stop();clearTimeout(deadline);process.exit(0);}
