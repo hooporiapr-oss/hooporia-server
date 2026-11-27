@@ -4,7 +4,7 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const idOf=x=>typeof x==='string'?x:x?.id;
 const checkoutPattern=/^cs_live_[A-Za-z0-9]+$/;
 function createEnrollment({stripe,base,auth,priceId,portalConfig,returnUrl,livemode}){
- if(livemode!==true||!/^price_[A-Za-z0-9]+$/.test(priceId)||!/^bpc_[A-Za-z0-9]+$/.test(portalConfig)||returnUrl!=='https://institutional.ritnome.com/enroll')throw Error('Invalid live enrollment configuration');
+ if(livemode!==true||priceId!=='price_1UgP8ZCuedlcmwMmeEZr9ev2'||!/^bpc_[A-Za-z0-9]+$/.test(portalConfig)||returnUrl!=='https://institutional.ritnome.com/enroll')throw Error('Invalid live enrollment configuration');
  const fail=(status,message)=>Object.assign(Error(message),{status});
  const ensure=(ok)=>{if(!ok)throw fail(503,'verification_required');};
  async function owner(header){
@@ -22,13 +22,13 @@ function createEnrollment({stripe,base,auth,priceId,portalConfig,returnUrl,livem
  async function lookup(o){
   const r=await base.from('ritnome_enrollment').select('*').eq('livemode',true).eq('owner_id',o.id).maybeSingle();
   ensure(!r.error);
-  if(!r.data||r.data.livemode!==false||r.data.owner_id!==o.id||r.data.enabled!==true)throw fail(403,'invitation_required');
+  if(!r.data||r.data.livemode!==true||r.data.owner_id!==o.id||r.data.enabled!==true||!uuid.test(r.data.approved_license_id||''))throw fail(403,'invitation_required');
   return r.data;
  }
  async function binding(e){
-  const r=await base.from('ritnome_subscription_registry').select('livemode,facility_id,stripe_customer_id,stripe_subscription_id,stripe_price_id,billing_status,paid_through').eq('livemode',true).eq('facility_id',e.facility_id).maybeSingle();
+  const r=await base.from('ritnome_subscription_registry').select('livemode,facility_id,stripe_customer_id,stripe_subscription_id,stripe_price_id,license_id,billing_status,paid_through').eq('livemode',true).eq('facility_id',e.facility_id).maybeSingle();
   ensure(!r.error);
-  if(r.data)ensure(r.data.livemode===true&&r.data.facility_id===e.facility_id&&r.data.stripe_price_id===priceId&&r.data.stripe_customer_id===e.stripe_customer_id);
+  if(r.data)ensure(r.data.livemode===true&&r.data.facility_id===e.facility_id&&r.data.stripe_price_id===priceId&&r.data.stripe_customer_id===e.stripe_customer_id&&r.data.license_id===e.approved_license_id);
   return r.data;
  }
  function hosted(url,host){try{const u=new URL(url);ensure(u.protocol==='https:'&&u.hostname===host&&!u.username&&!u.password&&!u.port);return u.href;}catch{throw fail(503,'verification_required');}}
@@ -65,7 +65,7 @@ function createEnrollment({stripe,base,auth,priceId,portalConfig,returnUrl,livem
   const claim=await base.rpc('ritnome_live_claim_checkout',{p_owner:o.id,p_session:o.session});
   ensure(!claim.error);
   const row=claim.data?.[0];if(!row)throw fail(409,'enrollment_unavailable');
-  ensure(row.livemode===true&&row.owner_id===o.id&&row.facility_id===e.facility_id&&row.enabled===true);
+  ensure(row.livemode===true&&row.owner_id===o.id&&row.facility_id===e.facility_id&&row.enabled===true&&row.approved_license_id===e.approved_license_id);
   if(row.checkout_session_id){
    const s=await inspect(row,await stripe.checkout.sessions.retrieve(row.checkout_session_id));
    if(s.status!=='open')throw fail(409,s.status==='expired'?'expired':'check_status');
