@@ -6,6 +6,7 @@ const {createClient}=require('@supabase/supabase-js');
 const {createRuntime}=require('./ritnome-runtime');
 const {verifyAccess}=require('./ritnome-sandbox-access-selftest');
 const {verifyEnrollment}=require('./ritnome-sandbox-enrollment-selftest');
+const {prepareBrowserPilot}=require('./ritnome-sandbox-browser-pilot');
 const required=name=>{const v=process.env[name];if(!v)throw Error('Missing '+name);return v;};
 let stage='startup';
 async function main(){
@@ -52,6 +53,7 @@ async function main(){
  if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid port');
  stage='HTTP listener';
  const server=runtime.app.listen(port,'0.0.0.0',()=>{runtime.start();console.log('Ritnome sandbox ready');
+ if(process.env.RITNOME_SANDBOX_BROWSER_PILOT==='true')prepareBrowserPilot(base,required('RITNOME_SANDBOX_BROWSER_PASSWORD')).then(()=>console.log('Ritnome sandbox browser pilot ready')).catch(()=>console.error('Ritnome sandbox browser pilot setup failed'));
  if(process.env.RITNOME_SANDBOX_ENROLLMENT_SELFTEST==='true')verifyEnrollment({base,signInClient:client(),stripe,priceId,port}).then(count=>console.log('Ritnome sandbox enrollment self-test passed: '+count+' checks')).catch(e=>console.error(/^Sandbox enrollment (test failed: [A-Za-z0-9 ,]+|fixture disable failed)$/.test(e?.message)?e.message:'Sandbox enrollment test failed'));
  if(process.env.RITNOME_SANDBOX_ACCESS_SELFTEST==='true')verifyAccess({base,signInClient:client(),port}).then(count=>console.log('Ritnome sandbox access self-test passed: '+count+' checks')).catch(e=>console.error(/^Sandbox access (self-test failed: [A-Za-z0-9 ,]+|fixture cleanup failed)$/.test(e?.message)?e.message:'Sandbox access self-test failed'));
  });
