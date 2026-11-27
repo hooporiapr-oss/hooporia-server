@@ -7,9 +7,12 @@ async function verifyAccess({base,signInClient,port}){
  let userId,stage='create fixture',checks=0;
  const check=(ok,name)=>{stage=name;if(!ok)throw Error('Sandbox access self-test failed: '+stage);checks++;};
  const request=async(token,expected)=>{
-  const res=await fetch('http://127.0.0.1:'+port+'/ritnome/sandbox/access-check',{headers:token?{Authorization:'Bearer '+token}:{}});
+ for(const endpoint of ['access-check','activity-desk']){
+  const res=await fetch('http://127.0.0.1:'+port+'/ritnome/sandbox/'+endpoint,{headers:token?{Authorization:'Bearer '+token}:{}});
   const data=await res.json();
   check((Array.isArray(expected)?expected.includes(res.status):res.status===expected)&&data.allowed===(res.status===200)&&res.headers.get('cache-control')==='no-store','HTTP access '+String(expected));
+ if(endpoint==='activity-desk')check(res.status===200?Array.isArray(data.plans)&&data.plans.length>0:!('plans' in data),'protected activity content');
+ }
  };
  try{
   const email='ritnome-fixture-'+randomUUID()+'@example.invalid',password='Aa1!'+randomBytes(32).toString('hex');
