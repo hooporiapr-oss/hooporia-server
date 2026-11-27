@@ -1,6 +1,6 @@
 # Ritnome institutional — live release runbook (2026-11-27)
 
-Status at the time of writing: production database and production service exist and are verified in **setup mode**. Nothing can be purchased until the owner completes the Stripe/DNS steps below and authorizes activation.
+Status 2026-11-27 20:41 UTC: **released**. Service active (`RITNOME_LIVE_ENABLED=true`, log "Ritnome institutional ready"), custom domain institutional.ritnome.com verified with certificate, website main at commit 183ff97 (facility page live). Zero facilities enrolled; the market is being created. All nine variables set. Live portal configuration and webhook endpoint exist in Stripe (ids in Render env). The Stripe sandbox has not been deleted yet (owner's dashboard action).
 
 ## What exists
 | Piece | Where | State |
