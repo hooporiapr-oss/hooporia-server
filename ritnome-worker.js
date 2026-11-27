@@ -6,7 +6,7 @@ function createWorker({base,source,priceId,livemode,clock=()=>Math.floor(Date.no
  async function one(eventId){
   if(typeof eventId!=='string'||!/^evt_[A-Za-z0-9]+$/.test(eventId))throw Error('Invalid event ID');
   for(let n=0;n<maxRetries;n++){
-   const e=await base.from('ritnome_stripe_inbox').select('livemode,stripe_event_id,subscription_id,processed_at').eq('livemode',livemode).eq('stripe_event_id',eventId).maybeSingle();
+   const e=await base.from('ritnome_stripe_inbox').select('livemode,stripe_event_id,subscription_id,event_type,processed_at').eq('livemode',livemode).eq('stripe_event_id',eventId).maybeSingle();
    if(e.error)throw Error('Inbox read failed');
    if(!e.data)return 'missing_event';
    if(e.data.livemode!==livemode||e.data.stripe_event_id!==eventId)throw Error('Event identity mismatch');
@@ -17,9 +17,14 @@ function createWorker({base,source,priceId,livemode,clock=()=>Math.floor(Date.no
    if(!b.data)return 'await_admin_binding';
    const binding=b.data;
    if(binding.livemode!==livemode||binding.stripe_subscription_id!==sub||binding.stripe_price_id!==priceId||!Number.isSafeInteger(binding.revision)||binding.revision<0)throw Error('Invalid binding');
-   const snap=await source.readVerifiedSnapshot(binding);
-   if(snap?.verified!==true)throw Error('Unverified payment evidence');
-   const result=(binding.billing_status==='review'||snap.reversal===true) ? {decision:'review',billingStatus:'review',paidThrough:binding.paid_through,reason:snap.reversal===true?'payment_reversal_review':'existing_review_hold'} : evaluate({binding,subscription:snap.subscription,invoice:snap.invoice,priceId,now:clock()});
+   const reversal=['charge.refunded','charge.dispute.created'].includes(e.data.event_type);
+   let result;
+   if(reversal||binding.billing_status==='review')result={decision:'review',billingStatus:'review',paidThrough:binding.paid_through,reason:reversal?'payment_reversal_review':'existing_review_hold'};
+   else {
+    const snap=await source.readVerifiedSnapshot(binding);
+    if(snap?.verified!==true)throw Error('Unverified payment evidence');
+    result=snap.reversal===true?{decision:'review',billingStatus:'review',paidThrough:binding.paid_through,reason:'payment_reversal_review'}:evaluate({binding,subscription:snap.subscription,invoice:snap.invoice,priceId,now:clock()});
+   }
    // SQL prohibits non-active extensions. Hold ambiguous paid/non-active cases for review.
    if(result.decision==='reconcile'&&result.billingStatus!=='active'&&(result.paidThrough==null?null:Date.parse(result.paidThrough))!==(binding.paid_through==null?null:Date.parse(binding.paid_through))){
     result.decision='review';result.billingStatus='review';result.paidThrough=binding.paid_through;result.reason='nonactive_paid_extension_review';
