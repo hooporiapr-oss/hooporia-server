@@ -1,0 +1,32 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {evaluate}=require('./ritnome-entitlement');
+const now=1800000000, stop=now+30*86400;
+const binding={livemode:true,stripe_subscription_id:'sub_a',stripe_customer_id:'cus_a',stripe_price_id:'price_a',license_id:'fixture',paid_through:null};
+const subscription={id:'sub_a',customer:'cus_a',livemode:true,status:'active',items:{has_more:false,data:[{id:'si_a',quantity:1,price:{id:'price_a'}}]}};
+const invoice={livemode:true,customer:'cus_a',subscription:'sub_a',status:'paid',currency:'usd',amount_paid:14900,billing_reason:'subscription_create',paid_out_of_band:false,lines:{has_more:false,data:[{price:'price_a',subscription_item:'si_a',quantity:1,proration:false,amount:14900,period:{start:now,end:stop}}]}};
+const base={binding,subscription,invoice,priceId:'price_a',now};
+const e=x=>evaluate({...base,...x});
+function run(){
+ assert.equal(e({}).access,'eligible');
+ assert.equal(e({}).paidThrough,new Date(stop*1000).toISOString());
+ assert.equal(e({invoice:null}).access,'suspend');
+ assert.equal(e({binding:{...binding,license_id:null}}).access,'await_admin_binding');
+ assert.equal(e({subscription:{...subscription,customer:'cus_other'}}).decision,'review');
+ assert.equal(e({subscription:{...subscription,livemode:false}}).decision,'review');
+ assert.equal(e({subscription:{...subscription,items:{data:[{...subscription.items.data[0],quantity:2}],has_more:false}}}).decision,'review');
+ assert.equal(e({invoice:{...invoice,amount_paid:0}}).decision,'review');
+ assert.equal(e({invoice:{...invoice,paid_out_of_band:true}}).decision,'review');
+ assert.equal(e({invoice:{...invoice,lines:{...invoice.lines,has_more:true}}}).decision,'review');
+ const paid={...binding,paid_through:new Date(stop*1000).toISOString()};
+ assert.equal(e({binding:paid,invoice:null,subscription:{...subscription,status:'past_due'}}).access,'eligible');
+ assert.equal(e({binding:paid,invoice:null,subscription:{...subscription,status:'canceled'}}).access,'eligible');
+ assert.equal(e({binding:paid,invoice:null,now:stop,subscription:{...subscription,status:'canceled'}}).access,'suspend');
+ assert.equal(e({binding:{...paid,paid_through:new Date((stop+86400)*1000).toISOString()}}).paidThrough,new Date((stop+86400)*1000).toISOString());
+ assert.equal(e({binding:{...binding,livemode:false,license_id:null},subscription:{...subscription,livemode:false},invoice:{...invoice,livemode:false}}).access,'test_only');
+ const modern={...invoice,subscription:null,parent:{subscription_details:{subscription:'sub_a'}},lines:{has_more:false,data:[{...invoice.lines.data[0],price:null,subscription_item:null,proration:null,pricing:{price_details:{price:'price_a'}},parent:{subscription_item_details:{subscription_item:'si_a',proration:false}}}]}};
+ assert.equal(e({invoice:modern}).access,'eligible');
+ console.log('16 entitlement assertions passed');
+}
+module.exports=run;
+if(require.main===module)run();
