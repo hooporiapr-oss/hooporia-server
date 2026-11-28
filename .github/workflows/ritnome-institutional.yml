@@ -48,10 +48,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
-        with: { repository: hooporiapr-oss/ritnome-bpm, ref: conga-institutional, path: site, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
+        with: { repository: hooporiapr-oss/ritnome-bpm, ref: main, path: site, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
+      - uses: actions/checkout@v4
+        with: { repository: hooporiapr-oss/reaction-velocity, ref: institutional, path: rv, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund && npm install --no-save pg@8 playwright@1 && npx playwright install --with-deps chromium
       - run: security-review/test/apply-local.sh ritci
       - run: RITNOME_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ritci RITNOME_BPM_DIR="$PWD/site" node ritnome-institutional.browser.test.js
       - run: psql postgres://postgres:postgres@localhost:5432/postgres -qc "DROP DATABASE ritci" -c "CREATE DATABASE ritci" && security-review/test/apply-local.sh ritci && RITNOME_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ritci node ritnome-desk.browser.test.js
+      - run: psql postgres://postgres:postgres@localhost:5432/postgres -qc "DROP DATABASE ritci" -c "CREATE DATABASE ritci" && security-review/test/apply-local.sh ritci && RITNOME_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/ritci RITNOME_BPM_DIR="$PWD/site" RITNOME_RV_DIR="$PWD/rv" node ritnome-activities.browser.test.js
