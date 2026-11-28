@@ -94,6 +94,23 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
  });
  // Reports
  h.facilitator=wrap(async(req,res)=>{const c=await requireSession(req,true);res.status(200).json(await rpc('ritnome_rep_facilitator_view',{p_session:c.id,p_price:priceId}));});
+ // Executive report data: month (YYYY-MM) or quarter (YYYY-Qn). Management-only utilization is computed here from the subscription price and labeled as such.
+ h.executive=wrap(async(req,res)=>{
+  const c=await requireSession(req,true);
+  const q=String(req.query?.period||'');let from,to;
+  let m=/^(\d{4})-(0[1-9]|1[0-2])$/.exec(q),qq=/^(\d{4})-Q([1-4])$/.exec(q);
+  if(m){from=`${m[1]}-${m[2]}-01`;const d=new Date(Date.UTC(+m[1],+m[2],1));to=d.toISOString().slice(0,10);}
+  else if(qq){const mm=(qq[2]-1)*3+1;from=`${qq[1]}-${String(mm).padStart(2,'0')}-01`;const d=new Date(Date.UTC(+qq[1],mm+2,1));to=d.toISOString().slice(0,10);}
+  else throw fail(400,'invalid');
+  const d=await rpc('ritnome_rep_executive',{p_session:c.id,p_price:priceId,p_from:from,p_to_excl:to});
+  if(!d||d.ok!==true)throw fail(d&&d.reason==='role'?403:400,d?d.reason:'invalid');
+  const cats={};for(const a of catalog.activities)cats[a.key]={es:a.es,en:a.en,category:a.category};
+  const months=qq?3:1;const s=d.summary;
+  d.period=q;d.period_kind=qq?'quarter':'month';d.catalog=cats;d.categories=catalog.categories;
+  // Subscription utilization: subscription-only figures (not program cost, not savings). Management-only; the page excludes them from print by default.
+  d.utilization={subscription_usd:149*months,months,per_session:s.sessions>0?Math.round(149*months/s.sessions*100)/100:null,per_participation:s.participations>0?Math.round(149*months/s.participations*100)/100:null,per_recreation_hour:Number(s.recreation_minutes)>0?Math.round(149*months/(Number(s.recreation_minutes)/60)*100)/100:null,note:'subscription_only'};
+  res.status(200).json(d);
+ });
  h.management=wrap(async(req,res)=>{const c=await requireSession(req,true);const m=String(req.query?.month||'');if(m&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(m))throw fail(400,'invalid');
   const d=await rpc('ritnome_rep_management',{p_session:c.id,p_price:priceId,p_month:m?m+'-01':null});if(d?.ok!==true)throw fail(d?.reason==='role'?403:401,d?.reason||'sign_in');res.status(200).json(d);});
  h.plan=wrap(async(req,res)=>{const c=await requireSession(req,true);const b=req.body||{};
@@ -141,6 +158,7 @@ function mountReporting(app,express,reporting){
  app.post('/reporting/report',json,reporting.report);
  app.get('/reporting/facilitator',reporting.facilitator);
  app.get('/reporting/management',reporting.management);
+ app.get('/reporting/executive',reporting.executive);
  app.post('/reporting/plan',json,reporting.plan);
  app.get('/reporting/handles',reporting.handles);
  app.post('/reporting/handles',json,reporting.handleCreate);

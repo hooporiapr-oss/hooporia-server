@@ -78,6 +78,11 @@ let pass=0;const ok=(name,cond)=>{assert.ok(cond,name);pass++;console.log('✔ '
  r=await api('/reporting/recreation-session',{method:'POST',cookie:cOwnerB,body:{planned_minutes:999}});ok('invalid planned minutes are ignored, session still starts',r.status===200);
  r=await api('/reporting/facilitator',{cookie:cOwnerB});ok('facility B sees nothing of A',r.status===200&&r.body.today.sessions===0);
  r=await api('/reporting/management',{cookie:cStaff});ok('facilitator cannot open management → 403',r.status===403);
+ r=await api('/reporting/executive?period='+new Date().toISOString().slice(0,7),{cookie:cOwner});ok('executive report data for the owner: facility, period, summary, utilization labeled subscription-only',r.status===200&&r.body.ok===true&&typeof r.body.facility==='string'&&r.body.period_kind==='month'&&r.body.summary.sessions>=1&&r.body.utilization.note==='subscription_only'&&r.body.timezone==='America/Puerto_Rico');
+ r=await api('/reporting/executive?period='+new Date().getFullYear()+'-Q'+(Math.floor(new Date().getMonth()/3)+1),{cookie:cOwner});ok('quarterly period accepted',r.status===200&&r.body.period_kind==='quarter'&&r.body.utilization.months===3);
+ r=await api('/reporting/executive?period=2026-13',{cookie:cOwner});ok('invalid period rejected',r.status===400);
+ r=await api('/reporting/executive?period='+new Date().toISOString().slice(0,7),{cookie:cStaff});ok('facilitator cannot read the executive report',r.status===403);
+ r=await api('/reporting/executive?period=2031-01',{cookie:cOwner});ok('future period rejected',r.status===400);
  r=await api('/reporting/management',{cookie:cOwner});ok('owner management summary',r.status===200&&r.body.summary.sessions===1&&r.body.summary.participations===10&&r.body.summary.unique_participants_tracked===false&&r.body.summary.unique_participants===null&&Array.isArray(r.body.trend));
  r=await api('/reporting/management?month=2026-13',{cookie:cOwner});ok('bad month → 400',r.status===400);
  r=await api('/reporting/plan',{method:'POST',cookie:cStaff,body:{sessions_per_week:7}});ok('facilitator cannot set plan → 403',r.status===403);
