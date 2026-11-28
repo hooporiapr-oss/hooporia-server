@@ -26,9 +26,26 @@ const GATE={
   finishGame:async p=>{await p.evaluate(()=>{HM_FIN.show({level:3,stats:'Nivel 3',again:function(){}});});}},
  'recognition':{athleteMode:async p=>{await p.goto('https://hooporia.mobi/003-recognition.html');},
   inst:async p=>({nameHidden:await p.evaluate(()=>location.pathname==='/003-recognition.html'),preset:true,hub:await p.evaluate(()=>[...document.querySelectorAll('a[href]')].every(a=>!/fortress-mobile-hub|index\.html/.test(a.getAttribute('href'))))}),
-  finishGame:async p=>{await p.evaluate(()=>{HM_FIN.show({level:3,stats:'Nivel 3',again:function(){}});});}}
-};
-const only=(process.env.RITNOME_ACTIVITIES||Object.keys(GATE).join(',')).split(',');
+  finishGame:async p=>{await p.evaluate(()=>{HM_FIN.show({level:3,stats:'Nivel 3',again:function(){}});});}},
+ 'zona':{athleteMode:async p=>{await p.goto('https://vreaction.com/vr-zona.html');},
+  inst:async p=>({nameHidden:await p.isHidden('#playerNameInputMain'),preset:await p.evaluate(()=>!document.getElementById('startBtn').disabled&&document.getElementById('bpmInput').value==='60'),hub:await p.evaluate(()=>[...document.querySelectorAll('a')].some(a=>/institutional\.ritnome\.com\/desk/.test(a.href)))}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('endBig').textContent='7/10';document.getElementById('end').hidden=false;});}},
+ 'zona-roja':{athleteMode:async p=>{await p.goto('https://vreaction.com/vr-zona-roja.html');},
+  inst:async p=>({nameHidden:await p.isHidden('#playerNameInputMain'),preset:await p.evaluate(()=>!document.getElementById('startBtn').disabled&&document.getElementById('bpmInput').value==='60'),hub:await p.evaluate(()=>[...document.querySelectorAll('a')].some(a=>/institutional\.ritnome\.com\/desk/.test(a.href)))}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('endBig').textContent='7/10';document.getElementById('end').hidden=false;});}},
+ 'encadena':{athleteMode:async p=>{await p.goto('https://vreaction.com/vr-encadena.html');},
+  inst:async p=>({nameHidden:await p.isHidden('#playerNameInputMain'),preset:await p.evaluate(()=>!document.getElementById('startBtn').disabled&&document.getElementById('bpmInput').value==='60'),hub:await p.evaluate(()=>[...document.querySelectorAll('a')].some(a=>/institutional\.ritnome\.com\/desk/.test(a.href)))}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('endBig').textContent='7/10';document.getElementById('end').hidden=false;});}},
+ 'replay':{athleteMode:async p=>{await p.goto('https://hooporia.mobi/004-replay.html');},
+  inst:async p=>({nameHidden:await p.evaluate(()=>location.pathname==='/004-replay.html'),preset:true,hub:await p.evaluate(()=>[...document.querySelectorAll('a[href]')].every(a=>!/fortress-mobile-hub|index\.html/.test(a.getAttribute('href'))))}),
+  finishGame:async p=>{await p.evaluate(()=>{HM_FIN.show({level:4,stats:'Nivel 4',again:function(){}});});}},
+ 'the-fortress':{athleteMode:async p=>{await p.goto('https://hooporia.mobi/001-fortress.html');},
+  inst:async p=>({nameHidden:await p.evaluate(()=>location.pathname==='/001-fortress.html'),preset:true,hub:await p.evaluate(()=>[...document.querySelectorAll('a[href]')].every(a=>!/fortress-mobile-hub|index\.html/.test(a.getAttribute('href'))))}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('challengeComplete').classList.add('show');});}},
+ 'the-reset':{athleteMode:async p=>{await p.goto('https://hooporia.mobi/005-reset.html');},
+  inst:async p=>({nameHidden:await p.evaluate(()=>location.pathname==='/005-reset.html'),preset:true,hub:await p.evaluate(()=>[...document.querySelectorAll('a[href]')].every(a=>!/fortress-mobile-hub|index\.html/.test(a.getAttribute('href'))))}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('s-done').classList.add('on');});}}
+};const only=(process.env.RITNOME_ACTIVITIES||Object.keys(GATE).join(',')).split(',');
 (async()=>{
  const db=new Client({connectionString:url});await db.connect();
  const U='22222222-2222-2222-2222-222222222222',S='aaaa2222-0000-0000-0000-000000000002',O='11111111-1111-1111-1111-111111111111',SO='aaaa1111-0000-0000-0000-000000000001';
