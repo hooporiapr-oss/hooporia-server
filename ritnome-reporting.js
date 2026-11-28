@@ -107,6 +107,7 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
   if(!d||d.ok!==true)throw fail(d&&d.reason==='role'?403:400,d?d.reason:'invalid');
   const cats={};for(const a of catalog.activities)cats[a.key]={es:a.es,en:a.en,category:a.category};
   const months=qq?3:1;const s=d.summary;
+  d.available_activities=catalog.activities.filter(a=>a.available).length;
   d.period=q;d.period_kind=trial?'trial':qq?'quarter':'month';if(trial)d.trial={trialing:trial.trialing===true,trial_end:trial.trial_end,days_left:trial.days_left,from:trial.from,to:trial.to_excl};d.catalog=cats;d.categories=catalog.categories;
   // Subscription utilization: subscription-only figures (not program cost, not savings). Management-only; the page excludes them from print by default.
   d.utilization={subscription_usd:149*months,months,per_session:s.sessions>0?Math.round(149*months/s.sessions*100)/100:null,per_participation:s.participations>0?Math.round(149*months/s.participations*100)/100:null,per_recreation_hour:Number(s.recreation_minutes)>0?Math.round(149*months/(Number(s.recreation_minutes)/60)*100)/100:null,note:'subscription_only'};
