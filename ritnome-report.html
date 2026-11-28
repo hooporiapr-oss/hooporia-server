@@ -6,39 +6,38 @@
 <meta name="robots" content="noindex,nofollow">
 <title>Ritnome Progress View · Informe ejecutivo</title>
 <style>
-:root{--ink:#111518;--muted:#5b6770;--line:#d9dee3;--soft:#f3f5f7;--teal:#1f8f88;--teal2:#80dcd8;--gold:#d9a53a;--green:#5aa851;--red:#ff686c;--blue:#4a8fe7;--violet:#8e6be8;--page-w:8.5in;--page-h:11in}
+:root{--ink:#14201f;--muted:#5d6b6a;--line:#d8dedd;--soft:#f2f5f4;--teal:#0f5a5a;--teal-mid:#1b7f7a;--teal-soft:#dbeeec;--orange:#f08a10;--orange-soft:#fde9cf;--coral:#e0463a;--plum:#6f2454;--cream:#fbf4e6;--page-w:8.5in;--page-h:11in}
 *{box-sizing:border-box}
-html,body{margin:0;background:#e9ecef;color:var(--ink);font:10.5pt/1.3 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+html,body{margin:0;background:#e6e9e8;color:var(--ink);font:10.5pt/1.32 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
 .toolbar{max-width:var(--page-w);margin:14px auto 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 8px}
 .toolbar button,.toolbar select,.toolbar input,.toolbar a{font:600 14px system-ui;min-height:40px;padding:8px 12px;border-radius:10px;border:1px solid #9aa6b0;background:#fff;color:var(--ink);text-decoration:none;cursor:pointer}
 .toolbar .primary{background:var(--teal);color:#fff;border-color:var(--teal)}
 .toolbar label{display:inline-flex;align-items:center;gap:6px;font:600 14px system-ui}
-.page{position:relative;width:var(--page-w);min-height:var(--page-h);margin:0 auto 24px;background:#fff;padding:.5in .55in .45in;box-shadow:0 6px 30px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:10px}
+.page{position:relative;width:var(--page-w);min-height:var(--page-h);margin:0 auto 24px;background:#fff;padding:.45in .55in .4in;box-shadow:0 6px 30px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:10px}
 .sample{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.sample span{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-28deg);font:900 58pt system-ui;letter-spacing:.08em;color:rgba(217,165,58,.14);white-space:nowrap}
-.sample-tag{display:inline-block;border:2px solid var(--gold);color:#8a5f0d;background:#fff6dd;border-radius:8px;padding:4px 10px;font-weight:800;font-size:10pt;letter-spacing:.06em}
-header.rh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:3px solid var(--teal);padding-bottom:10px}
-.brand{display:flex;align-items:center;gap:10px}.brand svg{width:46px;height:46px}
-.brand b{display:block;font-size:15pt;letter-spacing:.1em;line-height:1}.brand small{display:block;color:var(--muted);font-size:8pt;letter-spacing:.2em;margin-top:3px}
-.title{text-align:right}.title h1{margin:0;font-size:16pt;line-height:1.1}.title .fac{font-size:12pt;font-weight:700;margin-top:3px}.title .per{color:var(--muted);font-size:9.5pt;margin-top:2px}
-h2{font-size:10pt;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:800}
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sample span{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-28deg);font:900 58pt system-ui;letter-spacing:.08em;color:rgba(240,138,16,.13);white-space:nowrap}
+.sample-tag{display:inline-block;border:2px solid var(--orange);color:#8a4a0d;background:var(--orange-soft);border-radius:8px;padding:4px 10px;font-weight:800;font-size:10pt;letter-spacing:.06em}
+header.rh{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:4px solid var(--teal);padding-bottom:10px;position:relative}header.rh::after{content:'';position:absolute;left:0;right:0;bottom:-8px;height:3px;background:linear-gradient(90deg,var(--orange),var(--coral) 55%,var(--plum))}
+.brand{display:flex;align-items:center;gap:12px}.brand img{height:1in;width:auto;display:block}.brand .pv{border-left:2px solid var(--line);padding-left:12px}.brand .pv b{display:block;font-size:11pt;letter-spacing:.22em;color:var(--teal);line-height:1}.brand .pv small{display:block;color:var(--muted);font-size:7.5pt;letter-spacing:.18em;margin-top:4px}
+.title{text-align:right}.title h1{margin:0;font-size:17pt;line-height:1.1;color:var(--teal)}.title .fac{font-size:12pt;font-weight:700;margin-top:3px}.title .per{color:var(--muted);font-size:9.5pt;margin-top:2px}
+h2{font-size:9.5pt;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:800;display:flex;align-items:center;gap:8px}h2::before{content:'';width:10px;height:10px;border-radius:3px;background:var(--orange);flex:0 0 auto}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.kpis.hero{grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px}.kpis.hero .kpi{background:var(--teal-soft);border-color:#bddcd8;padding:8px 12px}.kpis.hero .kpi b{font-size:28pt;color:var(--teal)}.kpis.hero .kpi span{font-size:9.5pt;color:#2f4a48;font-weight:600}.kpis.minor{grid-template-columns:repeat(5,1fr)}.kpis.minor .kpi b{font-size:16pt}
 .kpi{border:1px solid var(--line);border-radius:10px;padding:6px 9px;background:#fff}.kpi b{display:block;font-size:18pt;line-height:1.05;letter-spacing:-.02em}.kpi span{display:block;color:var(--muted);font-size:8.5pt;margin-top:2px;line-height:1.2}
 .kpi .delta{display:inline-block;margin-top:3px;font-size:8.5pt;font-weight:700;padding:1px 6px;border-radius:999px;background:var(--soft)}
-.kpi .delta.up{color:#2d6a2f;background:#e4f3e3}.kpi .delta.down{color:#8a1f24;background:#fde3e4}
+.kpi .delta.up{color:#145c3a;background:#dff3e6}.kpi .delta.down{color:#8a2a1f;background:#fbe3df}
 .two{display:grid;grid-template-columns:1.15fr 1fr;gap:10px;align-items:stretch}
 .card{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.narr{font-size:9.8pt;line-height:1.38}.narr p{margin:0 0 5px}
+.narr{font-size:10.2pt;line-height:1.42}.narr p{margin:0 0 5px}.narr p:first-child{font-weight:600;color:var(--teal)}
 svg.chart{width:100%;height:auto;display:block}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:8.5pt;color:var(--muted);margin-top:4px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 table{width:100%;border-collapse:collapse;font-size:9pt}th,td{text-align:left;padding:3px 5px;white-space:nowrap;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:700;font-size:8.5pt;text-transform:uppercase;letter-spacing:.06em}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-.bar{height:9px;border-radius:5px;background:var(--teal2)}
-.mgmt{border:1.5px dashed var(--gold);background:#fffaf0}.mgmt h2{color:#8a5f0d}.mgmt .note{font-size:8.5pt;color:#6b5a2b;margin:4px 0 0}
-footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-size:7.5pt;line-height:1.3;color:var(--muted);display:flex;justify-content:space-between;gap:12px}
+.bar{height:9px;border-radius:5px;background:linear-gradient(90deg,var(--teal-mid),var(--orange))}
+.mgmt{border:1.5px dashed var(--orange);background:var(--cream)}.mgmt h2{color:#8a4a0d}.mgmt h2::before{background:var(--plum)}.mgmt .note{font-size:8.5pt;color:#6b5a2b;margin:4px 0 0}
+footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-size:7.3pt;line-height:1.28;flex-shrink:0;color:var(--muted);display:flex;justify-content:space-between;gap:12px}
 .empty{padding:20px;text-align:center;color:var(--muted)}
 .hidden{display:none !important}
 @page{size:Letter;margin:0}
-@media print{html,body{background:#fff}.toolbar{display:none!important}.page{box-shadow:none;margin:0;width:8.5in;height:11in;min-height:0;overflow:hidden;padding:.5in .55in .45in;break-after:avoid}.mgmt.noprint{display:none!important}}
+@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{display:none!important}.page{box-shadow:none;margin:0;width:8.5in;height:11in;min-height:0;overflow:hidden;padding:.45in .55in .4in;break-after:avoid}.mgmt.noprint{display:none!important}}
 @media screen and (max-width:900px){.page{width:100%;min-height:0;padding:16px}.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
 </style>
 </head>
@@ -56,12 +55,12 @@ footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-
 <article class="page" id="page">
  <div id="sampleMark" class="sample hidden"><span data-en="SAMPLE DATA">DATOS DE MUESTRA</span></div>
  <header class="rh">
-  <div class="brand"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="9" cy="24" r="5.2" fill="#ff686c"/><circle cx="19" cy="14" r="5.2" fill="#ffce55"/><circle cx="29" cy="24" r="5.2" fill="#a8de79"/><circle cx="39" cy="14" r="5.2" fill="#7ab7ff"/><circle cx="24" cy="36" r="5.2" fill="#bca0ff"/></svg><div><b>RITNOME</b><small>PROGRESS VIEW</small></div></div>
+  <div class="brand"><img src="/logo.png" alt="Ritnome"><div class="pv"><b>PROGRESS VIEW</b><small data-en="INSTITUTIONAL REPORTING">INFORMES INSTITUCIONALES</small></div></div>
   <div class="title"><h1 data-en="Institutional Executive Report">Informe ejecutivo institucional</h1><div class="fac" id="facility">—</div><div class="per" id="periodLine">—</div><div id="sampleTag" class="hidden" style="margin-top:4px"><span class="sample-tag" data-en="SAMPLE DATA · FICTIONAL FACILITY">DATOS DE MUESTRA · INSTITUCIÓN FICTICIA</span></div></div>
  </header>
  <section>
   <h2 data-en="The month at a glance">El mes de un vistazo</h2>
-  <div class="kpis" id="kpis"></div>
+  <div class="kpis hero" id="kpisHero"></div><div class="kpis minor" id="kpis"></div>
  </section>
  <section class="two">
   <div class="card"><h2 data-en="Summary">Resumen</h2><div class="narr" id="narrative"></div></div>
@@ -77,7 +76,7 @@ footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-
   <p class="note" data-en="Subscription-only figures: the monthly subscription divided by recorded activity. They are not the program's total cost and not savings. Excluded from print unless chosen above.">Cifras solo de la suscripción: la suscripción mensual dividida por la actividad registrada. No son el costo total del programa ni ahorros. Se excluyen de la impresión salvo que se elija arriba.</p>
  </section>
  <footer class="rf">
-  <span id="scope" data-en="Ritnome records the recreation delivered through Ritnome. Recreation minutes are the length of facilitated sessions; participations are cumulative; estimated participant minutes multiply activity minutes by headcount. Recreational activities, not medical treatment or therapy. No resident names or personal data.">Ritnome registra la recreación realizada a través de Ritnome. Los minutos de recreación son la duración de las sesiones facilitadas; las participaciones son acumuladas; los minutos estimados por participante multiplican los minutos de actividad por los asistentes. Actividades recreativas, no tratamiento médico ni terapia. Sin nombres ni datos personales de residentes.</span>
+  <span id="scope" data-en="Ritnome records the recreation delivered through Ritnome. Recreation minutes = length of facilitated sessions; participations are cumulative; participant minutes = activity minutes × headcount (estimate). Recreational activities, not medical treatment or therapy. No resident names or personal data.">Ritnome registra la recreación realizada a través de Ritnome. Minutos de recreación = duración de las sesiones facilitadas; las participaciones son acumuladas; minutos por participante = minutos de actividad × asistentes (estimado). Actividades recreativas, no tratamiento médico ni terapia. Sin nombres ni datos personales de residentes.</span>
   <span id="generated" style="white-space:nowrap"></span>
  </footer>
 </article>
