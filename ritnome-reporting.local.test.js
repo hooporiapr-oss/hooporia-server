@@ -67,7 +67,15 @@ let pass=0;const ok=(name,cond)=>{assert.ok(cond,name);pass++;console.log('✔ '
  r=await rep(3,'checkpoint',{},token,'https://vreaction.com');ok('valid token from another listed origin → 401',r.status===401);
  r=await rep(3,'end',{participations:10});ok('end accepted',r.status===200);
  // views and isolation
- r=await api('/reporting/facilitator',{cookie:cStaff});ok('facilitator view shows the run',r.status===200&&r.body.today.sessions===1&&r.body.today.participations===10);
+ r=await api('/reporting/facilitator',{cookie:cStaff});ok('facilitator view shows the run as 1 session / 1 activity run (standalone)',r.status===200&&r.body.today.sessions===1&&r.body.today.activity_runs===1&&r.body.today.participations===10&&r.body.timezone==='America/Puerto_Rico');
+ // R1: a Today's Session groups the launches that follow it; separate sessions stay separate; the current session is reported on /me
+ r=await api('/reporting/recreation-session',{method:'POST',cookie:cStaff,body:{planned_minutes:20}});ok('facilitator starts a recreation session',r.status===200&&/^[0-9a-f-]{36}$/.test(r.body.id));const rsId=r.body.id;
+ r=await api('/reporting/launch',{method:'POST',cookie:cStaff,body:{activity:'conga-party',recreation_session:rsId}});ok('launch inside the session',r.status===200);
+ r=await api('/reporting/launch',{method:'POST',cookie:cStaff,body:{activity:'conga-party'}});ok('library launch while a session is open joins it',r.status===200);
+ r=await api('/reporting/me',{cookie:cStaff});ok('/me reports the open session',r.status===200&&r.body.current&&r.body.current.id===rsId);
+ r=await api('/reporting/recreation-session/end',{method:'POST',cookie:cStaff});ok('session ended',r.status===200);
+ r=await api('/reporting/me',{cookie:cStaff});ok('/me shows no open session afterwards',r.status===200&&r.body.current===null);
+ r=await api('/reporting/recreation-session',{method:'POST',cookie:cOwnerB,body:{planned_minutes:999}});ok('invalid planned minutes are ignored, session still starts',r.status===200);
  r=await api('/reporting/facilitator',{cookie:cOwnerB});ok('facility B sees nothing of A',r.status===200&&r.body.today.sessions===0);
  r=await api('/reporting/management',{cookie:cStaff});ok('facilitator cannot open management → 403',r.status===403);
  r=await api('/reporting/management',{cookie:cOwner});ok('owner management summary',r.status===200&&r.body.summary.sessions===1&&r.body.summary.participations===10&&r.body.summary.unique_participants_tracked===false&&r.body.summary.unique_participants===null&&Array.isArray(r.body.trend));

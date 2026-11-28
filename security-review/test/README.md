@@ -6,6 +6,7 @@
 - Browser suite (release gate for activity integrations): `RITNOME_TEST_DATABASE_URL=... RITNOME_BPM_DIR=<ritnome-bpm checkout> node ritnome-institutional.browser.test.js` (Playwright).
 - Trial rules (SQL, 7 checks): `psql -d <db> -f security-review/test/trial-tests.sql` on a freshly applied database.
 - Progress suite (Phase 5: participant picker at the station, progress rows per handle, Individual Progress on the desk): `RITNOME_TEST_DATABASE_URL=... RITNOME_RV_DIR=... node ritnome-progress.browser.test.js`.
+- R1 accuracy rules (SQL, 17 checks: facilitated session identity, Puerto Rico periods, plan history, overlap, estimates): `psql -d <db> -f security-review/test/r1-tests.sql` on a freshly applied database.
 - Desk suite (Phase 3: sign-in, three tabs, launch, Facilitator/Management views, plan, staff, handles, inactivity lock): `RITNOME_TEST_DATABASE_URL=... node ritnome-desk.browser.test.js` on a freshly applied database (it leaves facility settings changed on purpose).
 - Activity gate (Phase 4, one block per onboarded activity: athlete mode untouched, institutional run start/report/close, no athlete-database calls): `RITNOME_TEST_DATABASE_URL=... RITNOME_BPM_DIR=... RITNOME_RV_DIR=<reaction-velocity checkout> RITNOME_MOBI_DIR=<fortress-mobi checkout> node ritnome-activities.browser.test.js`.
 

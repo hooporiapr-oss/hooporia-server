@@ -53,7 +53,10 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
   res.status(200).json({ok:true});
  });
  h.sessionEnd=wrap(async(req,res)=>{const id=sessionOf(req);if(id)await rpc('ritnome_rep_session_end',{p_session:id});setCookie(res,'',0);res.status(200).json({ok:true});});
- h.me=wrap(async(req,res)=>{const c=await requireSession(req,false);res.status(200).json({ok:true,role:c.role,handles_enabled:c.handles_enabled===true});});
+ h.me=wrap(async(req,res)=>{const c=await requireSession(req,false);const cur=await rpc('ritnome_rep_recsession_current',{p_session:c.id,p_price:priceId});res.status(200).json({ok:true,role:c.role,handles_enabled:c.handles_enabled===true,current:cur||null});});
+ // Facilitated recreation session (Today's Session): parent of the activity runs that follow. No data entry beyond the chosen length.
+ h.recStart=wrap(async(req,res)=>{const c=await requireSession(req,true);const pm=Number(req.body?.planned_minutes);const id=await rpc('ritnome_rep_recsession_start',{p_session:c.id,p_price:priceId,p_planned_minutes:Number.isInteger(pm)&&pm>0&&pm<=240?pm:null,p_source:'plan'});if(!uuid.test(id||''))throw fail(403,'sign_in');res.status(200).json({ok:true,id});});
+ h.recEnd=wrap(async(req,res)=>{const c=await requireSession(req,true);const ok=await rpc('ritnome_rep_recsession_end',{p_session:c.id,p_price:priceId});if(ok!==true)throw fail(403,'sign_in');res.status(200).json({ok:true});});
  // Library and launch
  h.library=wrap(async(req,res)=>{const c=await requireSession(req,false);
   res.status(200).json({ok:true,role:c.role,categories:catalog.categories,activities:catalog.activities.filter(a=>a.available).map(({key,es,en,category,mode,seated,minutes,flagship})=>({key,es,en,category,mode,seated,minutes,flagship:!!flagship}))});});
@@ -62,7 +65,8 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
   const a=catalog.byKey.get(String(req.body?.activity||''));
   if(!a||!a.available)throw fail(404,'activity_unavailable');
   const code=rnd();
-  const ok=await rpc('ritnome_rep_launch_create',{p_session:c.id,p_price:priceId,p_activity:a.key,p_origin:a.origin,p_code_hash:sha(code)});
+  const rs=String(req.body?.recreation_session||'');
+  const ok=await rpc('ritnome_rep_launch_create',{p_session:c.id,p_price:priceId,p_activity:a.key,p_origin:a.origin,p_code_hash:sha(code),p_recsession:uuid.test(rs)?rs:null});
   if(ok!==true)throw fail(401,'sign_in');
   // The code travels in the URL fragment only (never sent to any server, stripped by the game script on load), lives 60 s, single use.
   res.status(200).json({ok:true,url:a.origin+a.path+'#rl='+code,expires_in:60});
@@ -129,6 +133,8 @@ function mountReporting(app,express,reporting){
  app.get('/reporting/me',reporting.me);
  app.get('/reporting/library',reporting.library);
  app.post('/reporting/launch',json,reporting.launch);
+ app.post('/reporting/recreation-session',json,reporting.recStart);
+ app.post('/reporting/recreation-session/end',json,reporting.recEnd);
  app.options('/reporting/exchange',reporting.preflight);
  app.options('/reporting/report',reporting.preflight);
  app.post('/reporting/exchange',json,reporting.exchange);

@@ -50,7 +50,16 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  ok('no management or settings for a facilitator',await p.evaluate(()=>document.getElementById('mgmt').hidden&&document.getElementById('settings').hidden));
  await p.evaluate(n=>{window.__avail=n},catalog.activities.filter(a=>a.available).length);await p.click('[data-tab=library]');ok('library shows only verified activities by category',await p.evaluate(()=>{const cards=[...document.querySelectorAll('#library .act h3')].map(h=>h.textContent);return cards.length===window.__avail&&cards.includes('Conga Party');}));
  await p.click('#language');ok('English toggle and remembered',await p.evaluate(()=>document.documentElement.lang==='en'&&/Today's session/.test(document.querySelector('.tabs').textContent)&&localStorage.getItem('ritnomeLang')==='en'));await p.click('#language');
- const nav=p.waitForURL(/ritnome\.com\/conga-party\.html#rl=/,{timeout:5000}).then(()=>true).catch(()=>false);await p.click('#library .act button');ok('Start opens the activity with a one-time launch code',await nav);
+ let nav=p.waitForURL(/ritnome\.com\/conga-party\.html#rl=/,{timeout:5000}).then(()=>true).catch(()=>false);await p.click('#library .act button');ok('Start opens the activity with a one-time launch code',await nav);
+ ok('a library launch with no session open created a standalone recreation session',(await db.query(`SELECT source,status FROM public.ritnome_recreation_session ORDER BY started_at DESC LIMIT 1`)).rows[0].source==='standalone');
+ // back on the desk: starting a plan step opens a facilitated session and the desk shows it in progress
+ await p.goto(SERVICE+'/desk');await p.waitForTimeout(900);await p.click('[data-tab=today]');await p.click('[data-len="20"]');
+ nav=p.waitForURL(/ritnome\.com\/conga-party\.html#rl=/,{timeout:5000}).then(()=>true).catch(()=>false);await p.click('#plan button');ok('plan step launches',await nav);
+ ok('plan step created a 20-minute facilitated session (plan source)',(await db.query(`SELECT source,planned_minutes,status FROM public.ritnome_recreation_session ORDER BY started_at DESC LIMIT 1`)).rows[0].planned_minutes===20);
+ await p.goto(SERVICE+'/desk');await p.waitForTimeout(900);
+ ok('desk shows the session in progress with an end button',await p.evaluate(()=>!document.getElementById('session').hidden&&/Sesión en curso/.test(document.getElementById('session').textContent)&&!!document.getElementById('endSession')));
+ await p.click('#endSession');await p.waitForTimeout(700);ok('ending the session hides the line',await p.evaluate(()=>document.getElementById('session').hidden));
+ ok('today KPIs show sessions and activity runs separately',await p.evaluate(()=>/Sesiones/.test(document.getElementById('todayKpis').textContent)&&/Actividades realizadas/.test(document.getElementById('todayKpis').textContent)));
  ok('no token or session id stored in the browser',await p.evaluate(()=>!Object.keys(localStorage).some(k=>/token|session/i.test(k))&&!Object.keys(sessionStorage).length&&!document.cookie.includes('ritnome_fs')));
  await ctx.close();
  // owner on a desktop
