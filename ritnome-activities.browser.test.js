@@ -20,7 +20,13 @@ const GATE={
   finishGame:async p=>{await p.evaluate(()=>{document.getElementById('endBpm').textContent='72';document.getElementById('end').hidden=false;});}},
  'swipe-it':{athleteMode:async p=>{await p.goto('https://vreaction.com/vr-swipe-it.html');},
   inst:async p=>({nameHidden:await p.isHidden('#playerNameInputMain'),preset:await p.evaluate(()=>!document.getElementById('startBtn').disabled&&document.getElementById('bpmInput').value==='60'),hub:await p.evaluate(()=>[...document.querySelectorAll('a')].some(a=>/institutional\.ritnome\.com\/desk/.test(a.href)))}),
-  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('endHits').textContent='66';document.getElementById('end').hidden=false;});}}
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('endHits').textContent='66';document.getElementById('end').hidden=false;});}},
+ 'recall':{athleteMode:async p=>{await p.goto('https://hooporia.mobi/002-recall.html');},
+  inst:async p=>({nameHidden:await p.evaluate(()=>location.pathname==='/002-recall.html'),preset:true,hub:await p.evaluate(()=>[...document.querySelectorAll('a[href]')].every(a=>!/fortress-mobile-hub|index\.html/.test(a.getAttribute('href'))))}),
+  finishGame:async p=>{await p.evaluate(()=>{HM_FIN.show({level:3,stats:'Nivel 3',again:function(){}});});}},
+ 'recognition':{athleteMode:async p=>{await p.goto('https://hooporia.mobi/003-recognition.html');},
+  inst:async p=>({nameHidden:await p.evaluate(()=>location.pathname==='/003-recognition.html'),preset:true,hub:await p.evaluate(()=>[...document.querySelectorAll('a[href]')].every(a=>!/fortress-mobile-hub|index\.html/.test(a.getAttribute('href'))))}),
+  finishGame:async p=>{await p.evaluate(()=>{HM_FIN.show({level:3,stats:'Nivel 3',again:function(){}});});}}
 };
 const only=(process.env.RITNOME_ACTIVITIES||Object.keys(GATE).join(',')).split(',');
 (async()=>{
@@ -52,6 +58,7 @@ const only=(process.env.RITNOME_ACTIVITIES||Object.keys(GATE).join(',')).split('
    if(dirs[u.origin]){const f=path.join(dirs[u.origin],u.pathname.slice(1)||'index.html');return fs.existsSync(f)?rt.fulfill({path:f}):rt.fulfill({status:404,body:''});}
    if(u.origin==='https://institutional.ritnome.com'){if(u.pathname==='/ritnome-institutional.js')return rt.fulfill({path:path.join(__dirname,'ritnome-institutional.js'),contentType:'application/javascript'});
     calls.inst++;const resp=await rt.fetch({url:SERVICE+u.pathname+u.search});return rt.fulfill({response:resp});}
+   if(/^fonts\.(googleapis|gstatic)\.com$/.test(u.host))return rt.abort();   // page fonts: no data, not counted
    calls.other.push(u.href);return rt.abort();});
   // athlete mode untouched: the page must not call the institutional service at all (it may try its own hosts, which are blocked here)
   let p=await ctx.newPage();p.on('pageerror',e=>errs.push(key+': '+e.message));await g.athleteMode(p);await p.waitForTimeout(800);
@@ -71,7 +78,7 @@ const only=(process.env.RITNOME_ACTIVITIES||Object.keys(GATE).join(',')).split('
   await p.click('.ri-banner button');await p.waitForTimeout(900);
   row=(await db.query(`SELECT status FROM public.ritnome_activity_run WHERE activity_key=$1 ORDER BY started_at DESC LIMIT 1`,[key])).rows[0];
   ok(key+': finish closes the run',row.status==='closed');
-  ok(key+': no request to the athlete database or any other host while institutional',calls.other.length===0);
+  ok(key+': no request to the athlete database or any other host while institutional ('+calls.other.join(' ')+')',calls.other.length===0);
   await ctx.close();
  }
  ok('no page errors',errs.length===0);
