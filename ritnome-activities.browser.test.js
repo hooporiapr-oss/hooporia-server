@@ -44,8 +44,24 @@ const GATE={
   finishGame:async p=>{await p.evaluate(()=>{document.getElementById('challengeComplete').classList.add('show');});}},
  'the-reset':{athleteMode:async p=>{await p.goto('https://hooporia.mobi/005-reset.html');},
   inst:async p=>({nameHidden:await p.evaluate(()=>location.pathname==='/005-reset.html'),preset:true,hub:await p.evaluate(()=>[...document.querySelectorAll('a[href]')].every(a=>!/fortress-mobile-hub|index\.html/.test(a.getAttribute('href'))))}),
-  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('s-done').classList.add('on');});}}
-};const only=(process.env.RITNOME_ACTIVITIES||Object.keys(GATE).join(',')).split(',');
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('s-done').classList.add('on');});}},
+ 'lelolai-letras':{athleteMode:async p=>{await p.goto('https://ritnome.com/recreation-sopa.html');},
+  inst:async p=>({nameHidden:true,preset:true,hub:true}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('doneMsg').style.display='block';});}},
+ 'la-marquesina':{athleteMode:async p=>{await p.goto('https://ritnome.com/recreation-domino.html');},
+  inst:async p=>({nameHidden:true,preset:true,hub:true}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('gameOverOverlay').classList.add('show');});}},
+ 'solitario-boricua':{athleteMode:async p=>{await p.goto('https://ritnome.com/recreation-solitario.html');},
+  inst:async p=>({nameHidden:true,preset:true,hub:true}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('winOverlay').classList.add('show');});}},
+ 'la-isla':{athleteMode:async p=>{await p.goto('https://ritnome.com/recreation-isla.html');},
+  inst:async p=>({nameHidden:true,preset:true,hub:true}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('completionModal').classList.add('active');});}},
+ 'reactific':{athleteMode:async p=>{await p.goto('https://vreaction.com/vr-reactific.html');},
+  inst:async p=>({nameHidden:await p.isHidden('#playerNameInputMain'),preset:await p.evaluate(()=>!document.getElementById('bpmInput').disabled&&document.getElementById('bpmInput').value==='60'),hub:true}),
+  finishGame:async p=>{await p.evaluate(()=>{document.getElementById('screen-end').style.display='flex';});}}
+};
+const only=(process.env.RITNOME_ACTIVITIES||Object.keys(GATE).join(',')).split(',');
 (async()=>{
  const db=new Client({connectionString:url});await db.connect();
  const U='22222222-2222-2222-2222-222222222222',S='aaaa2222-0000-0000-0000-000000000002',O='11111111-1111-1111-1111-111111111111',SO='aaaa1111-0000-0000-0000-000000000001';
@@ -91,7 +107,7 @@ const GATE={
   ok(key+': no player name asked, senior preset applied, exits go to the desk',st.nameHidden&&st.preset&&st.hub);
   await g.finishGame(p);await p.waitForTimeout(900);
   let row=(await db.query(`SELECT r.mode,r.status,(SELECT max((e.payload->>'games_completed')::int) FROM public.ritnome_activity_event e WHERE e.run_id=r.run_id) AS games FROM public.ritnome_activity_run r WHERE r.activity_key=$1 ORDER BY r.started_at DESC LIMIT 1`,[key])).rows[0];
-  ok(key+': completed game reported (games_completed 1, mode individual)',row&&row.mode==='individual'&&row.games===1&&row.status==='open');
+  ok(key+': completed game reported (games_completed 1, mode '+act.mode+')',row&&row.mode===act.mode&&row.games===1&&row.status==='open');
   await p.click('.ri-banner button');await p.waitForTimeout(900);
   row=(await db.query(`SELECT status FROM public.ritnome_activity_run WHERE activity_key=$1 ORDER BY started_at DESC LIMIT 1`,[key])).rows[0];
   ok(key+': finish closes the run',row.status==='closed');

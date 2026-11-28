@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
-        with: { repository: hooporiapr-oss/ritnome-bpm, ref: main, path: site, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
+        with: { repository: hooporiapr-oss/ritnome-bpm, ref: recreation-institutional, path: site, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
       - uses: actions/checkout@v4
         with: { repository: hooporiapr-oss/reaction-velocity, ref: institutional, path: rv, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
       - uses: actions/checkout@v4
