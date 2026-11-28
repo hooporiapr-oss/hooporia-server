@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es-PR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Ritnome Progress View · Registro del programa de recreación</title>
+<style>
+:root{--ink:#14201f;--muted:#5d6b6a;--line:#d8dedd;--soft:#f2f5f4;--teal:#0f5a5a;--teal-mid:#1b7f7a;--teal-soft:#dbeeec;--orange:#f08a10;--orange-soft:#fde9cf;--coral:#e0463a;--plum:#6f2454;--cream:#fbf4e6}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e6e9e8;color:var(--ink);font:10.5pt/1.32 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+.toolbar{max-width:8.5in;margin:14px auto 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 8px}
+.toolbar button,.toolbar select,.toolbar input,.toolbar a{font:600 14px system-ui;min-height:40px;padding:8px 12px;border-radius:10px;border:1px solid #9aa6b0;background:#fff;color:var(--ink);text-decoration:none;cursor:pointer}
+.toolbar .primary{background:var(--teal);color:#fff;border-color:var(--teal)}.toolbar label{display:inline-flex;align-items:center;gap:6px;font:600 14px system-ui}
+.page{position:relative;width:8.5in;height:11in;margin:0 auto 18px;background:#fff;box-shadow:0 6px 30px rgba(0,0,0,.12);padding:.45in .55in .5in;display:flex;flex-direction:column;overflow:hidden}.page .body{flex:1 1 auto;overflow:hidden}.page .pf{flex:0 0 auto;border-top:1px solid var(--line);padding-top:6px;margin-top:8px;font-size:7.6pt;color:var(--muted);display:flex;justify-content:space-between;gap:12px}.hdr2{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--teal);padding-bottom:6px;margin-bottom:12px;font-size:9pt;color:var(--muted)}.hdr2 b{color:var(--teal);letter-spacing:.14em}.hdr2 img{height:.4in;width:auto}
+header.rh{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:4px solid var(--teal);padding-bottom:10px;position:relative;margin-bottom:14px}
+header.rh::after{content:'';position:absolute;left:0;right:0;bottom:-8px;height:3px;background:linear-gradient(90deg,var(--orange),var(--coral) 55%,var(--plum))}
+.brand{display:flex;align-items:center;gap:12px}.brand img{height:1in;width:auto;display:block}.brand .pv{border-left:2px solid var(--line);padding-left:12px}.brand .pv b{display:block;font-size:11pt;letter-spacing:.22em;color:var(--teal);line-height:1}.brand .pv small{display:block;color:var(--muted);font-size:7.5pt;letter-spacing:.18em;margin-top:4px}
+.title{text-align:right}.title h1{margin:0;font-size:17pt;line-height:1.1;color:var(--teal)}.title .fac{font-size:12pt;font-weight:700;margin-top:3px}.title .per{color:var(--muted);font-size:9.5pt;margin-top:2px}
+.sample-tag{display:inline-block;border:2px solid var(--orange);color:#8a4a0d;background:var(--orange-soft);border-radius:8px;padding:4px 10px;font-weight:800;font-size:10pt;letter-spacing:.06em}
+h2{font-size:9.5pt;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:14px 0 6px;font-weight:800;display:flex;align-items:center;gap:8px}h2::before{content:'';width:10px;height:10px;border-radius:3px;background:var(--orange);flex:0 0 auto}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.kpi{border:1px solid var(--line);border-radius:10px;padding:6px 9px;background:var(--teal-soft);border-color:#bddcd8}.kpi b{display:block;font-size:17pt;line-height:1.05;color:var(--teal)}.kpi span{display:block;color:#2f4a48;font-size:8pt;margin-top:2px;line-height:1.2;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:8.8pt;table-layout:fixed}th,td{text-align:left;padding:3px 5px;overflow-wrap:anywhere;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:700;font-size:8pt;text-transform:uppercase;letter-spacing:.06em;background:var(--soft)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.sess td{background:#f4f8f7;font-weight:700;border-top:2px solid #cfe0dd;white-space:nowrap}tr.act td{color:#2b3534}tr.act td:first-child{padding-left:22px;color:var(--muted)}
+.day{break-inside:avoid;margin-bottom:10px}.day h3{margin:10px 0 4px;font-size:10.5pt;color:var(--ink);display:flex;justify-content:space-between;align-items:baseline}.day h3 span{font-size:8.5pt;color:var(--muted);font-weight:600}
+.scope{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:8.8pt;color:#2b3534;background:var(--cream)}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:22px;break-inside:avoid}.sign div{border-top:1px solid var(--ink);padding-top:5px;font-size:8.5pt;color:var(--muted)}
+.foot{font-size:7.6pt;color:var(--muted);margin-top:14px;border-top:1px solid var(--line);padding-top:6px;display:flex;justify-content:space-between;gap:12px}
+.empty{padding:16px;text-align:center;color:var(--muted)}
+.hidden{display:none !important}
+@page{size:Letter;margin:0}
+@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar,#measure{display:none!important}.page{box-shadow:none;margin:0;break-after:page}.page:last-child{break-after:auto}}
+@media screen and (max-width:900px){.page{width:100%;height:auto;padding:16px}.kpis{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<div class="toolbar">
+ <a href="/desk" data-en="← Desk">← Panel</a>
+ <select id="preset"><option value="month" data-en="This month">Este mes</option><option value="prev" data-en="Previous month">Mes anterior</option><option value="quarter" data-en="This quarter">Este trimestre</option><option value="custom" data-en="Custom range">Rango personalizado</option></select>
+ <input id="from" type="date" aria-label="Desde"><input id="to" type="date" aria-label="Hasta">
+ <button id="apply" type="button" data-en="Apply">Aplicar</button>
+ <label><input id="withDays" type="checkbox" checked> <span data-en="Daily summary">Resumen diario</span></label>
+ <button id="csv" type="button">CSV</button>
+ <button id="language" type="button">English</button>
+ <button id="print" class="primary" type="button" data-en="Print / PDF">Imprimir / PDF</button>
+ <span id="msg" style="color:#8a1f24;font-weight:700"></span>
+</div>
+<div id="pages"></div>
+<div id="measure" style="position:absolute;left:-10000px;top:0;width:7.4in;background:#fff"></div>
+<script src="/record.js" defer></script>
+</body>
+</html>

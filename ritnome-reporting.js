@@ -111,6 +111,17 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
   d.utilization={subscription_usd:149*months,months,per_session:s.sessions>0?Math.round(149*months/s.sessions*100)/100:null,per_participation:s.participations>0?Math.round(149*months/s.participations*100)/100:null,per_recreation_hour:Number(s.recreation_minutes)>0?Math.round(149*months/(Number(s.recreation_minutes)/60)*100)/100:null,note:'subscription_only'};
   res.status(200).json(d);
  });
+ // Recreation Program Record: chronological documentation for a date range (any facility role; facility scoped by the session).
+ h.record=wrap(async(req,res)=>{
+  const c=await requireSession(req,true);
+  const from=String(req.query?.from||''),to=String(req.query?.to||'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to))throw fail(400,'invalid');
+  const toExcl=new Date(Date.UTC(+to.slice(0,4),+to.slice(5,7)-1,+to.slice(8,10)+1)).toISOString().slice(0,10);
+  const d=await rpc('ritnome_rep_record',{p_session:c.id,p_price:priceId,p_from:from,p_to_excl:toExcl});
+  if(!d||d.ok!==true)throw fail(400,d?d.reason:'invalid');
+  const cats={};for(const a of catalog.activities)cats[a.key]={es:a.es,en:a.en,category:a.category};
+  d.catalog=cats;d.categories=catalog.categories;res.status(200).json(d);
+ });
  h.management=wrap(async(req,res)=>{const c=await requireSession(req,true);const m=String(req.query?.month||'');if(m&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(m))throw fail(400,'invalid');
   const d=await rpc('ritnome_rep_management',{p_session:c.id,p_price:priceId,p_month:m?m+'-01':null});if(d?.ok!==true)throw fail(d?.reason==='role'?403:401,d?.reason||'sign_in');res.status(200).json(d);});
  h.plan=wrap(async(req,res)=>{const c=await requireSession(req,true);const b=req.body||{};
@@ -159,6 +170,7 @@ function mountReporting(app,express,reporting){
  app.get('/reporting/facilitator',reporting.facilitator);
  app.get('/reporting/management',reporting.management);
  app.get('/reporting/executive',reporting.executive);
+ app.get('/reporting/record',reporting.record);
  app.post('/reporting/plan',json,reporting.plan);
  app.get('/reporting/handles',reporting.handles);
  app.post('/reporting/handles',json,reporting.handleCreate);

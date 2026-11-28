@@ -75,3 +75,8 @@ Enrollment is by invitation; the browser can never pick a price, customer or fac
 
 ## Status after the six phases
 All six approved phases are live. Operating notes: the activity gate (`ritnome-activities.browser.test.js`) is the rule for any new activity — it is marked `available:true` in `ritnome-activity-catalog.js` only after its block passes. Invitations remain the entry point (`## Inviting a facility`); a facility's first entitlement is the 14-day trial.
+
+## Progress View R1–R3 (2026-11-28)
+- R1 (released 11:06 UTC): facilitated session identity, Puerto Rico periods, plan history, single calculation layer. Migration `ritnome-r1-sessions.sql`.
+- R2 (released 11:39 UTC): Institutional Executive Report at `/report` (owner/manager), one Letter page, Spanish/English, management-only utilization excluded from print by default. Migration `ritnome-r2-executive.sql`. Visual standard for all Progress View reports.
+- R3 (pending ok): Recreation Program Record at `/record` (any facility role, facility scoped): date range, period summary, planned vs delivered by week with target history, daily summary, chronological record (sessions → activity runs, settings where recorded), scope/privacy statement, signature line, page numbering, CSV. Migration `ritnome-r3-record.sql`.
