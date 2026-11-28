@@ -47,7 +47,7 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  await p.click('[data-tab=progress]');await p.waitForTimeout(500);
  ok('desk links to the executive report for the chosen month',await p.evaluate(()=>/\/report/.test(document.getElementById('execReport').getAttribute('href'))));
  await p.goto(SERVICE+'/report?period='+ym);await p.waitForTimeout(1200);
- const st=await p.evaluate(()=>({fac:document.getElementById('facility').textContent,kpis:document.getElementById('kpis').textContent,narr:document.getElementById('narrative').textContent,sample:document.getElementById('sampleTag').classList.contains('hidden'),mgmtNoPrint:document.getElementById('mgmt').classList.contains('noprint'),util:document.getElementById('util').textContent,weeklyBars:document.querySelectorAll('#weekly rect').length,trendPts:document.querySelectorAll('#trend circle').length,acts:document.querySelectorAll('#activities tr').length-1,lang:document.documentElement.lang}));
+ const st=await p.evaluate(()=>({fac:document.getElementById('facility').textContent,kpis:document.getElementById('kpisHero').textContent+' '+document.getElementById('kpis').textContent,narr:document.getElementById('narrative').textContent,sample:document.getElementById('sampleTag').classList.contains('hidden'),mgmtNoPrint:document.getElementById('mgmt').classList.contains('noprint'),util:document.getElementById('util').textContent,weeklyBars:document.querySelectorAll('#weekly rect').length,trendPts:document.querySelectorAll('#trend circle').length,acts:document.querySelectorAll('#activities tr').length-1,lang:document.documentElement.lang}));
  ok('real facility name, Spanish first, no sample label',st.fac==='Residencia Prueba (ficticia)'&&st.lang==='es-PR'&&st.sample);
  ok('KPIs: 3 facilitated sessions, 6 activity runs, 43 minutes (20+10+13)',/^3/.test(st.kpis.trim())&&/6\s*Actividades realizadas/.test(st.kpis)&&/43\s*·/.test(st.kpis));
  ok('narrative reconciles with the KPIs (3 sessions, 6 activities, 43 minutes, Conga Party most conducted)',/realizó 3 sesiones facilitadas de recreación con 6 actividades/.test(st.narr)&&/43 minutos/.test(st.narr)&&/más realizada fue Conga Party \(3 veces\)/.test(st.narr));
@@ -65,7 +65,7 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  const ctx2=await browser.newContext({viewport:{width:1100,height:1500}});const f=await ctx2.newPage();f.on('pageerror',e=>errs.push(e.message));
  await f.goto(SERVICE+'/desk');await f.fill('#email','staff@a');await f.fill('#password','pw');await f.click('#form button[type=submit]');await f.waitForTimeout(900);
  await f.goto(SERVICE+'/report?period='+ym);await f.waitForTimeout(900);
- ok('facilitator is told the report is for the owner or a manager',await f.evaluate(()=>/propietario o gerente/.test(document.getElementById('msg').textContent)&&document.getElementById('kpis').textContent===''));
+ ok('facilitator is told the report is for the owner or a manager',await f.evaluate(()=>/propietario o gerente/.test(document.getElementById('msg').textContent)&&document.getElementById('kpisHero').textContent===''));
  // sample mode is explicitly labeled
  await p.goto(SERVICE+'/report?sample=1&period=2026-10');await p.waitForTimeout(600);
  ok('sample mode shows the SAMPLE DATA watermark and tag',await p.evaluate(()=>!document.getElementById('sampleTag').classList.contains('hidden')&&!document.getElementById('sampleMark').classList.contains('hidden')&&/ficticia/.test(document.getElementById('facility').textContent)));
