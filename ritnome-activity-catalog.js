@@ -2,7 +2,7 @@
 // Institutional activity catalog. The activity key chooses the host and path; the browser never supplies a URL.
 // `available` is false until the activity's integration and reporting have been verified (owner rule: do not advertise before that).
 const activities=[
- {key:'conga-party',es:'Conga Party',en:'Conga Party',category:'rhythm',origin:'https://ritnome.com',path:'/conga-party.html',mode:'group',seated:true,minutes:15,available:false,flagship:true},
+ {key:'conga-party',es:'Conga Party',en:'Conga Party',category:'rhythm',origin:'https://ritnome.com',path:'/conga-party.html',mode:'group',seated:true,minutes:15,available:true,flagship:true},
  {key:'lelolai-letras',es:'LeLoLai Letras',en:'LeLoLai Letras',category:'recreation',origin:'https://ritnome.com',path:'/recreation-sopa.html',mode:'individual',seated:true,minutes:10,available:false},
  {key:'la-marquesina',es:'La Marquesina (dominó)',en:'La Marquesina (dominoes)',category:'recreation',origin:'https://ritnome.com',path:'/recreation-domino.html',mode:'group',seated:true,minutes:15,available:false},
  {key:'solitario-boricua',es:'Solitario Boricua',en:'Boricua Solitaire',category:'recreation',origin:'https://ritnome.com',path:'/recreation-solitario.html',mode:'individual',seated:true,minutes:10,available:false},
