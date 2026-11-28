@@ -89,3 +89,9 @@ All six approved phases are live. Operating notes: the activity gate (`ritnome-a
 - Isolated by its own facility_id; refuses to run twice. Do not use the billing button on /enroll for this facility. Retire: `update public.ritnome_enrollment set enabled=false where approved_license_id=(select id from public.licenses where code='RITNOME-DEMO-01');`
 - Created in production 2026-11-28 (owner gostardigital@gmail.com; 44 sessions, 124 runs, 16 activities, 6 participants). Verified: owner sign-in authorized, executive/management/facilitator/record/trial/journey reports, launch→exchange→run for all 16 activities.
 - Commercial exclusion rule: the demo never exists in Stripe, so Stripe revenue, customer and trial-conversion figures cannot include it. Any database count of customers, subscriptions, trials or revenue must exclude license codes `RITNOME-DEMO-%` (equivalently `stripe_subscription_id LIKE 'sub_RitnomeDemo%'`).
+
+## R6 — Progress View landing and desk accuracy (live 2026-11-28)
+- Migration `ritnome-r6-desk.sql` (desk weekly count limited to the selected month; read-only function) applied; service deployed at commit b644845.
+- Progress View tab = landing with six role-filtered cards; managers see Facility Settings read-only; facilitators see Facilitator View and Program Record only.
+- Production verified with the demo facility (owner, manager, facilitator; cancelled transaction): desk weekly = desk month = Executive Report = Program Record for 2026-09/10/11; role refusals unchanged.
+- Future (non-blocking): roomier Facility Settings form and Mi Trayectoria buttons on phones.
