@@ -48,11 +48,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
-        with: { repository: hooporiapr-oss/ritnome-bpm, ref: recreation-institutional, path: site, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
+        with: { repository: hooporiapr-oss/ritnome-bpm, ref: main, path: site, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
       - uses: actions/checkout@v4
-        with: { repository: hooporiapr-oss/reaction-velocity, ref: institutional, path: rv, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
+        with: { repository: hooporiapr-oss/reaction-velocity, ref: main, path: rv, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
       - uses: actions/checkout@v4
-        with: { repository: hooporiapr-oss/fortress-mobi, ref: institutional, path: mobi, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
+        with: { repository: hooporiapr-oss/fortress-mobi, ref: main, path: mobi, token: "${{ secrets.RITNOME_SITE_TOKEN || secrets.GITHUB_TOKEN }}" }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund && npm install --no-save pg@8 playwright@1 && npx playwright install --with-deps chromium

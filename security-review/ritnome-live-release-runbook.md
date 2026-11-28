@@ -60,3 +60,7 @@ Enrollment is by invitation; the browser can never pick a price, customer or fac
 - Checkout adds `trial_period_days: 14` with a card required; if the card is missing at trial end Stripe cancels. Price, tax and portal settings are unchanged.
 - Entitlement: a verified first trial (`trialing`, ≤14 days, no prior paid period) grants access until `trial_end`; the SQL commit allows that one non-active extension only (from NULL, ≤15 days ahead). Nothing else about the paid rules changed. Migration: `security-review/ritnome-trial.sql`.
 - Owner step in the Stripe dashboard (not code): Settings → Billing → Subscriptions and emails → turn on the reminder email before a trial ends.
+
+## Phase 4 released (2026-11-28)
+- All 15 activities verified by the activity gate (106 checks) and marked available in the library. Game sites merged to main: ritnome-bpm (auto-deploy), reaction-velocity = vreaction-velocity on GitHub (same repo, auto-deploy), fortress-mobi (manual deploy).
+- Institutional mode on the game sites is entered only by the launch code in the URL fragment; athlete/school use is unchanged.
