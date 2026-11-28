@@ -37,10 +37,20 @@ function evaluate({binding,subscription,invoice,priceId,now}) {
      stop<=start||stop-start>32*86400||start>now) return review('invalid_paid_period');
   end=Math.max(old,stop);
  }
- const eligible=end>now&&['active','past_due','unpaid','canceled'].includes(status);
+ // Free trial (owner-approved 2026-11-28): only a first entitlement, only while Stripe says 'trialing', only up to 14 days + 1 day of slack,
+ // and never extended by a trial again once a paid period exists. A trial cannot stack with or follow a paid period.
+ const TRIAL_MAX=15*86400;
+ let trial=false;
+ if(status==='trialing'){
+  const ts=subscription.trial_start,te=subscription.trial_end,created=subscription.created;
+  if(!validTime(ts)||!validTime(te)||!validTime(created)||te<=ts||te-ts>TRIAL_MAX||ts<created-86400||ts>now) return review('invalid_trial_period');
+  if(old!==0&&old!==te) return review('trial_after_paid_period');   // the same trial may be re-read; a different period may not
+  end=te;trial=true;
+ }
+ const eligible=end>now&&(trial||['active','past_due','unpaid','canceled'].includes(status));
  const hasLicense=Boolean(binding.license_id);
  return {decision:'reconcile',billingStatus:status,paidThrough:end?new Date(end*1000).toISOString():null,
    access:!binding.livemode?'test_only':!hasLicense?'await_admin_binding':eligible?'eligible':'suspend',
-   reason:eligible?'verified_paid_period':'no_current_paid_period'};
+   reason:eligible?(trial?'verified_trial_period':'verified_paid_period'):'no_current_paid_period'};
 }
 module.exports={evaluate};

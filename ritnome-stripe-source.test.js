@@ -30,6 +30,12 @@ async function run(){
  for(const [name,mutate,binding] of cases){f=fixture();mutate(f);await assert.rejects(()=>read(f,binding||b),/Ritnome payment evidence/,name);}
  for(const mutate of [f=>f.pi.latest_charge.amount_refunded=100,f=>f.pi.latest_charge.refunded=true,f=>f.pi.latest_charge.disputed=true]){f=fixture();mutate(f);assert.equal((await read(f)).reversal,true);}
  await assert.rejects(()=>read(fixture(),b,false),/SDK unavailable/);
- console.log('24 Stripe source checks passed');
+ // trial start: $0 subscription_create invoice on a trialing subscription is not payment evidence → invoice omitted, no payment lookups
+ const trial=()=>{const f=fixture();f.s.status='trialing';Object.assign(f.i,{billing_reason:'subscription_create',total:0,subtotal:0,amount_paid:0,amount_due:0,amount_remaining:0,starting_balance:0,ending_balance:0});f.pi=null;f.p=null;return f;};
+ const tr=await read(trial());assert.equal(tr.verified,true);assert.equal(tr.invoice,null);assert.equal(tr.subscription.status,'trialing');
+ f=trial();f.s.status='active';await assert.rejects(()=>read(f),/Ritnome payment evidence/,'$0 invoice outside a trial is not accepted');
+ f=trial();f.i.billing_reason='subscription_cycle';await assert.rejects(()=>read(f),/Ritnome payment evidence/,'$0 cycle invoice is not accepted');
+ f=trial();f.i.total=14900;f.i.amount_paid=0;await assert.rejects(()=>read(f),/Ritnome payment evidence/,'unpaid non-zero total during trial is not accepted');
+ console.log('30 Stripe source checks passed');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});

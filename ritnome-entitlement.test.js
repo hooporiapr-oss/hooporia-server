@@ -26,7 +26,19 @@ function run(){
  assert.equal(e({binding:{...binding,livemode:false,license_id:null},subscription:{...subscription,livemode:false},invoice:{...invoice,livemode:false}}).access,'test_only');
  const modern={...invoice,subscription:null,parent:{subscription_details:{subscription:'sub_a'}},lines:{has_more:false,data:[{...invoice.lines.data[0],price:null,subscription_item:null,proration:null,pricing:{price_details:{price:'price_a'}},parent:{subscription_item_details:{subscription_item:'si_a',proration:false}}}]}};
  assert.equal(e({invoice:modern}).access,'eligible');
- console.log('16 entitlement assertions passed');
+ // 14-day trial: first entitlement only, judged from the subscription, no invoice evidence
+ const trialing={...subscription,status:'trialing',created:now-60,trial_start:now-60,trial_end:now-60+14*86400};
+ const t=e({invoice:null,subscription:trialing});
+ assert.equal(t.access,'eligible');assert.equal(t.reason,'verified_trial_period');assert.equal(t.billingStatus,'trialing');
+ assert.equal(t.paidThrough,new Date((now-60+14*86400)*1000).toISOString());
+ assert.equal(e({invoice:null,subscription:{...trialing,trial_end:now-60+16*86400}}).decision,'review');            // longer than allowed
+ assert.equal(e({invoice:null,subscription:{...trialing,trial_start:now+600}}).decision,'review');                  // starts in the future
+ assert.equal(e({invoice:null,subscription:{...trialing,trial_end:undefined}}).decision,'review');                  // no end
+ assert.equal(e({invoice:null,subscription:trialing,binding:paid}).decision,'review');                             // trial after a paid period
+ assert.equal(e({invoice:null,subscription:trialing,binding:{...binding,paid_through:t.paidThrough}}).access,'eligible'); // same trial re-read
+ assert.equal(e({invoice:null,subscription:trialing,now:now-60+14*86400+1}).access,'suspend');                     // trial over, nothing paid
+ assert.equal(e({invoice:null,subscription:{...trialing,status:'past_due'}}).access,'suspend');                    // card failed after trial
+ console.log('26 entitlement assertions passed');
 }
 module.exports=run;
 if(require.main===module)run();

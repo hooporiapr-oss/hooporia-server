@@ -16,6 +16,8 @@ function createStripeSource({stripe,priceId,livemode}){
   const i=await stripe.invoices.retrieve(invoiceId);
   requireEvidence(i.id===invoiceId&&i.livemode===livemode&&idOf(i.customer)===binding.stripe_customer_id&&invoiceSub(i)===s.id&&i.currency==='usd','invoice identity');
   if(i.status!=='paid')return {verified:true,subscription:s,invoice:i};
+  // Trial start: Stripe issues a $0 "paid" invoice. It is no payment evidence, so it is not passed on; the trial itself is judged from the subscription.
+  if(s.status==='trialing'&&i.billing_reason==='subscription_create'&&i.total===0&&i.amount_paid===0&&i.amount_due===0&&i.paid_out_of_band!==true&&i.starting_balance===0&&i.ending_balance===0)return {verified:true,subscription:s,invoice:null};
   requireEvidence(i.paid_out_of_band!==true&&['subscription_create','subscription_cycle'].includes(i.billing_reason)&&i.subtotal===14900&&Number.isSafeInteger(i.total)&&i.total>=14900&&i.amount_paid===i.total&&i.amount_due===i.total&&i.amount_remaining===0,'invoice settlement');
   requireEvidence(i.automatic_tax?.enabled===true&&i.automatic_tax?.status==='complete','automatic tax');
   requireEvidence(i.starting_balance===0&&i.ending_balance===0&&Array.isArray(i.total_discount_amounts)&&i.total_discount_amounts.length===0&&i.pre_payment_credit_notes_amount===0&&i.post_payment_credit_notes_amount===0,'credits or discounts');

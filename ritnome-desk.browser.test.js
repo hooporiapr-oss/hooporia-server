@@ -59,7 +59,7 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  ok('owner sees management, settings and KPIs',await p.evaluate(()=>!document.getElementById('mgmt').hidden&&!document.getElementById('settings').hidden&&document.querySelectorAll('#mgmtKpis .kpi').length>=7));
  ok('unique participants shown as not tracked while handles are off',await p.evaluate(()=>/not tracked|no se registra/.test(document.getElementById('mgmtKpis').textContent)));
  await p.fill('#spw','7');await p.selectOption('#handles','true');await p.click('#planForm button[type=submit]');await p.waitForTimeout(900);
- ok('plan saved: 7 per week, handles on, handles card appears',await p.evaluate(()=>!document.getElementById('handlesCard').hidden&&/7 planned|7 planificadas/.test(document.getElementById('mgmtKpis').textContent)));
+ ok('plan saved: 7 per week, handles on, handles card appears',await p.evaluate(()=>!document.getElementById('handlesCard').hidden&&(m=>m&&Number(m[1])>0&&Number(m[1])%7===0)(/\/ (\d+) (?:planned|planificadas)/.exec(document.getElementById('mgmtKpis').textContent))   /* monthly planned total is a multiple of 7/week */));
  await p.click('#newHandle');await p.waitForTimeout(600);ok('owner creates a participant handle',await p.evaluate(()=>document.querySelectorAll('#handlesTable button[data-view]').length===1));
  await p.click('#handlesTable button[data-view]');await p.waitForTimeout(600);ok('individual progress view opens (empty)',await p.evaluate(()=>/No records|Aún sin registros/.test(document.getElementById('individual').textContent)));
  await p.fill('#staffEmail','new@a');await p.selectOption('#staffRole','facilitator');await p.click('#staffForm button[type=submit]');await p.waitForTimeout(900);

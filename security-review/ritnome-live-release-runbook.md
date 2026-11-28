@@ -55,3 +55,8 @@ Enrollment is by invitation; the browser can never pick a price, customer or fac
 - Release steps for Phases 2–3 (after "ok to push"): (1) apply `ritnome-staff-management.sql` to ritnome-production; (2) deploy `ritnome-institutional` from the branch; (3) merge ritnome-bpm `conga-institutional` → main (static site auto-deploys); (4) set `available:true` for `conga-party` in `ritnome-activity-catalog.js` and redeploy; (5) verify: `/desk` sign-in with a facility account, Start Conga Party from the library, run appears in Facilitator View.
 - Evidence per checkpoint: SQL suite 64/64, service suite 35/35, script browser suite 14/14, desk browser suite 21/21 (local, disposable Postgres; see `security-review/test/README.md`).
 - Rollback: `RITNOME_LIVE_ENABLED=false` disables the whole institutional service; the reporting tables keep their data (never dropped).
+
+## 14-day free trial (owner-approved 2026-11-28, pending "ok to push")
+- Checkout adds `trial_period_days: 14` with a card required; if the card is missing at trial end Stripe cancels. Price, tax and portal settings are unchanged.
+- Entitlement: a verified first trial (`trialing`, ≤14 days, no prior paid period) grants access until `trial_end`; the SQL commit allows that one non-active extension only (from NULL, ≤15 days ahead). Nothing else about the paid rules changed. Migration: `security-review/ritnome-trial.sql`.
+- Owner step in the Stripe dashboard (not code): Settings → Billing → Subscriptions and emails → turn on the reminder email before a trial ends.

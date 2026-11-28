@@ -26,7 +26,7 @@ function createWorker({base,source,priceId,livemode,clock=()=>Math.floor(Date.no
     result=snap.reversal===true?{decision:'review',billingStatus:'review',paidThrough:binding.paid_through,reason:'payment_reversal_review'}:evaluate({binding,subscription:snap.subscription,invoice:snap.invoice,priceId,now:clock()});
    }
    // SQL prohibits non-active extensions. Hold ambiguous paid/non-active cases for review.
-   if(result.decision==='reconcile'&&result.billingStatus!=='active'&&(result.paidThrough==null?null:Date.parse(result.paidThrough))!==(binding.paid_through==null?null:Date.parse(binding.paid_through))){
+   if(result.decision==='reconcile'&&result.billingStatus!=='active'&&!(result.billingStatus==='trialing'&&binding.paid_through==null&&result.reason==='verified_trial_period')&&(result.paidThrough==null?null:Date.parse(result.paidThrough))!==(binding.paid_through==null?null:Date.parse(binding.paid_through))){
     result.decision='review';result.billingStatus='review';result.paidThrough=binding.paid_through;result.reason='nonactive_paid_extension_review';
    }
    const reply=await base.rpc('ritnome_commit_decision',{p_mode:livemode,p_event:eventId,p_subscription:sub,p_revision:binding.revision,p_status:result.billingStatus,p_paid_through:result.paidThrough,p_decision:result.decision,p_reason:result.reason});

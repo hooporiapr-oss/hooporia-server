@@ -33,6 +33,10 @@ async function run(){
  f=fixture();f.b.billing_status='review';f.b.paid_through=date;assert.equal(await call(f),'committed');assert.equal(f.calls[0].p_reason,'existing_review_hold');assert.equal(f.calls[0].p_status,'review');
  for(const event of ['charge.refunded','charge.dispute.created']){f=fixture();f.e.event_type=event;f.b.paid_through=date;f.sourceError=true;assert.equal(await call(f),'committed');assert.equal(f.calls[0].p_status,'review');assert.equal(f.calls[0].p_paid_through,date);assert.equal(f.calls[0].p_reason,'payment_reversal_review');assert.equal(f.reads,0);}
  f=fixture();f.b.billing_status='review';f.b.paid_through=date;f.sourceError=true;assert.equal(await call(f),'committed');assert.equal(f.reads,0);
- console.log('24 worker scenarios passed');
+ // trial: a verified first trial commits 'trialing' with paid_through = trial end; a trial after a paid period goes to review
+ const tend=now-60+14*86400, tdate=new Date(tend*1000).toISOString();
+ f=fixture();Object.assign(f.s,{status:'trialing',created:now-60,trial_start:now-60,trial_end:tend});f.i=null;assert.equal(await call(f),'committed');assert.equal(f.calls[0].p_status,'trialing');assert.equal(f.calls[0].p_paid_through,tdate);assert.equal(f.calls[0].p_reason,'verified_trial_period');
+ f=fixture();Object.assign(f.s,{status:'trialing',created:now-60,trial_start:now-60,trial_end:tend});f.i=null;f.b.paid_through=date;assert.equal(await call(f),'committed');assert.equal(f.calls[0].p_decision,'review');assert.equal(f.calls[0].p_paid_through,date);
+ console.log('26 worker scenarios passed');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});

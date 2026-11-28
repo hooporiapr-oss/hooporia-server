@@ -43,11 +43,14 @@ function createEnrollment({stripe,base,auth,priceId,portalConfig,returnUrl,livem
   if(!b&&e.checkout_session_id){
    const session=await inspect(e,await stripe.checkout.sessions.retrieve(e.checkout_session_id));
    if(session.status==='expired')return {facility:e.facility_name,state:'expired'};
-   if(session.status==='complete'&&session.payment_status==='paid'){
+   // A 14-day trial checkout completes with payment_status 'no_payment_required'; it is accepted only if Stripe shows the subscription trialing.
+   const trialCheckout=session.payment_status==='no_payment_required';
+   if(session.status==='complete'&&(session.payment_status==='paid'||trialCheckout)){
     const subId=idOf(session.subscription),customer=idOf(session.customer);
     ensure(/^sub_[A-Za-z0-9]+$/.test(subId||'')&&/^cus_[A-Za-z0-9]+$/.test(customer||''));
     const sub=await stripe.subscriptions.retrieve(subId);
     ensure(sub.id===subId&&sub.livemode===true&&idOf(sub.customer)===customer&&sub.metadata?.ritnome_facility===e.facility_id&&sub.items?.has_more===false&&sub.items?.data?.length===1&&idOf(sub.items.data[0].price)===priceId&&sub.items.data[0].quantity===1);
+    if(trialCheckout)ensure(sub.status==='trialing'&&Number.isSafeInteger(sub.trial_end)&&sub.trial_end*1000>Date.now()&&sub.trial_end-sub.trial_start<=15*86400);
     const result=await base.rpc('ritnome_live_bind_checkout',{p_owner:o.id,p_session:o.session,p_checkout:session.id,p_customer:customer,p_subscription:subId,p_price:priceId});
     ensure(!result.error&&['bound','already_bound'].includes(result.data));
     e=await lookup(o);b=await binding(e);ensure(b);
@@ -58,7 +61,7 @@ function createEnrollment({stripe,base,auth,priceId,portalConfig,returnUrl,livem
   if(!b)return {facility:e.facility_name,state:'ready'};
   const access=await base.rpc('ritnome_institution_authorized',{p_mode:true,p_user:o.id,p_session:o.session,p_price:priceId});
   ensure(!access.error&&typeof access.data==='boolean');
-  return {facility:e.facility_name,state:access.data?'active':b.billing_status==='review'?'review':'payment_pending',paidThrough:b.paid_through,billingAvailable:true};
+  return {facility:e.facility_name,state:access.data?(b.billing_status==='trialing'?'trial':'active'):b.billing_status==='review'?'review':'payment_pending',paidThrough:b.paid_through,billingAvailable:true};
  }
  async function start(o,e){
   if(await binding(e))throw fail(409,'already_enrolled');
@@ -73,7 +76,7 @@ function createEnrollment({stripe,base,auth,priceId,portalConfig,returnUrl,livem
   }
   // Stripe retains idempotency keys for at least 24 hours. Do not create a second session after an uncertain older attempt.
   const age=Date.now()-Date.parse(row.checkout_started_at);ensure(Number.isFinite(age)&&age>=-60000&&age<20*3600000);
-  const s=await stripe.checkout.sessions.create({mode:'subscription',line_items:[{price:priceId,quantity:1}],payment_method_types:['card'],automatic_tax:{enabled:true},billing_address_collection:'required',allow_promotion_codes:false,client_reference_id:row.facility_id,metadata:{ritnome_facility:row.facility_id},subscription_data:{metadata:{ritnome_facility:row.facility_id}},success_url:returnUrl+'?checkout=complete',cancel_url:returnUrl+'?checkout=canceled'},{idempotencyKey:'ritnome-enrollment-'+row.facility_id});
+  const s=await stripe.checkout.sessions.create({mode:'subscription',line_items:[{price:priceId,quantity:1}],payment_method_types:['card'],automatic_tax:{enabled:true},billing_address_collection:'required',allow_promotion_codes:false,client_reference_id:row.facility_id,metadata:{ritnome_facility:row.facility_id},subscription_data:{metadata:{ritnome_facility:row.facility_id},trial_period_days:14,trial_settings:{end_behavior:{missing_payment_method:'cancel'}}},success_url:returnUrl+'?checkout=complete',cancel_url:returnUrl+'?checkout=canceled'},{idempotencyKey:'ritnome-enrollment-'+row.facility_id});
   ensure(checkoutPattern.test(s.id)&&s.livemode===true&&s.mode==='subscription'&&s.client_reference_id===row.facility_id&&s.status==='open');
   const saved=await base.from('ritnome_enrollment').update({checkout_session_id:s.id}).eq('livemode',true).eq('owner_id',o.id).eq('enabled',true).is('checkout_session_id',null).select('checkout_session_id').maybeSingle();
   ensure(!saved.error);const current=await lookup(o);ensure(current.checkout_session_id===s.id);
