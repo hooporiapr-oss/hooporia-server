@@ -39,7 +39,13 @@ BEGIN
        (SELECT x.result FROM inp x WHERE x.activity_key=a.activity_key AND x.setting=a.setting ORDER BY x.recorded_at DESC LIMIT 1) r_last,
        (SELECT max((x.result->>'level')::numeric) FROM inp x WHERE x.activity_key=a.activity_key AND x.setting=a.setting AND jsonb_typeof(x.result->'level')='number') lv
       FROM inp a GROUP BY a.activity_key,a.setting) q),
-  'history',(SELECT coalesce(jsonb_agg(jsonb_build_object('at',recorded_at,'day',day,'activity',activity_key,'setting',setting,'mode',mode,'minutes',minutes,'bpm',personal_bpm,'result',result) ORDER BY recorded_at DESC),'[]'::jsonb) FROM (SELECT * FROM inp ORDER BY recorded_at DESC LIMIT 120) z)
+  'history_total',(SELECT count(*) FROM inp),
+  'history_limit',2000,
+  -- personal_bpm is an individual measurement sent by the activity itself (never derived from the group's configured tempo);
+  -- activity_bpm is the tempo the activity was configured at (the run's group_bpm), reported separately and never attributed to the person.
+  'history',(SELECT coalesce(jsonb_agg(jsonb_build_object('at',z.recorded_at,'day',z.day,'activity',z.activity_key,'setting',z.setting,'mode',z.mode,'minutes',z.minutes,'bpm',z.personal_bpm,'result',z.result,
+      'activity_bpm',(SELECT CASE WHEN jsonb_typeof(ev.payload->'group_bpm')='number' THEN (ev.payload->>'group_bpm')::numeric END FROM public.ritnome_activity_event ev WHERE ev.run_id=z.run_id AND ev.kind='start' ORDER BY ev.seq LIMIT 1)) ORDER BY z.recorded_at DESC),'[]'::jsonb)
+     FROM (SELECT * FROM inp ORDER BY recorded_at DESC LIMIT 2000) z)
  ) INTO out;
  RETURN out;
 END $$;

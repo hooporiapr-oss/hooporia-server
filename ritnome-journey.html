@@ -13,34 +13,38 @@ html,body{margin:0;background:#e9e5dc;color:var(--ink);font:11pt/1.38 "Segoe UI"
 .toolbar button,.toolbar select,.toolbar input,.toolbar a{font:600 14px system-ui;min-height:40px;padding:8px 12px;border-radius:10px;border:1px solid #9aa6b0;background:#fff;color:var(--ink);text-decoration:none;cursor:pointer}
 .toolbar .primary{background:var(--teal);color:#fff;border-color:var(--teal)}
 .page{position:relative;width:8.5in;height:11in;margin:0 auto 18px;background:var(--paper);box-shadow:0 6px 30px rgba(0,0,0,.12);padding:.42in .55in .42in;display:flex;flex-direction:column;overflow:hidden}
-.page .body{flex:1 1 auto;overflow:hidden}.page .pf{flex:0 0 auto;border-top:1px solid var(--line);padding-top:6px;margin-top:8px;font-size:7.6pt;color:var(--muted);display:flex;justify-content:space-between;gap:12px}
+.page .body{flex:1 1 auto;overflow:hidden}.page .pf{flex:0 0 auto;border-top:1px solid var(--line);padding-top:5px;margin-top:8px;font-size:7.4pt;color:var(--muted)}.pf .scope{margin:0 0 4px;line-height:1.3;color:#4a5756}.pf .pfl{display:flex;justify-content:space-between;gap:12px}
 header.rh{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:4px solid var(--orange);padding-bottom:10px;position:relative;margin-bottom:14px}
 header.rh::after{content:'';position:absolute;left:0;right:0;bottom:-8px;height:3px;background:linear-gradient(90deg,var(--teal),var(--teal-mid) 55%,var(--plum))}
 .brand{display:flex;align-items:center;gap:12px}.brand img{height:.9in;width:auto;display:block}.brand .pv{border-left:2px solid var(--line);padding-left:12px}.brand .pv b{display:block;font-size:11pt;letter-spacing:.22em;color:var(--teal);line-height:1}.brand .pv small{display:block;color:var(--muted);font-size:7.5pt;letter-spacing:.18em;margin-top:4px}
 .title{text-align:right}.title h1{margin:0;font-size:20pt;line-height:1.05;color:var(--plum);font-weight:900}.title .who{font-size:12pt;font-weight:700;margin-top:4px;color:var(--teal)}.title .who code{font:900 13pt ui-monospace,Menlo,Consolas,monospace;background:var(--teal-soft);padding:2px 8px;border-radius:8px;letter-spacing:.12em}.title .per{color:var(--muted);font-size:9pt;margin-top:2px}
 .hdr2{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--orange);padding-bottom:6px;margin-bottom:12px;font-size:9pt;color:var(--muted)}.hdr2 b{color:var(--teal);letter-spacing:.14em}.hdr2 img{height:.4in;width:auto}
 .sample-tag{display:inline-block;border:2px solid var(--orange);color:#8a4a0d;background:var(--orange-soft);border-radius:8px;padding:3px 8px;font-weight:800;font-size:8.5pt;letter-spacing:.06em}
-h2{font-size:9.5pt;letter-spacing:.14em;text-transform:uppercase;color:var(--plum);margin:10px 0 5px;font-weight:800;display:flex;align-items:center;gap:8px}h2::before{content:'';width:10px;height:10px;border-radius:50%;background:var(--orange);flex:0 0 auto}
-.hero{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.hero .kpi{border-radius:14px;padding:8px 12px;background:var(--teal-soft);border:1px solid #cfe3e0}.hero .kpi b{display:block;font-size:22pt;line-height:1;color:var(--teal)}.hero .kpi span{display:block;font-size:9pt;color:#2f4a48;font-weight:600;margin-top:3px}
-.story{font-size:10.5pt;line-height:1.4;background:var(--cream);border:1px solid var(--line);border-radius:14px;padding:9px 14px}.story p{margin:0 0 6px}.story p:first-child{font-weight:700;color:var(--plum)}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch}.card{border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff}
+h2{font-size:9.5pt;letter-spacing:.14em;text-transform:uppercase;color:var(--plum);margin:8px 0 4px;font-weight:800;display:flex;align-items:center;gap:8px}h2::before{content:'';width:10px;height:10px;border-radius:50%;background:var(--orange);flex:0 0 auto}
+.hero{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.hero.c5{grid-template-columns:repeat(5,1fr);gap:8px}.hero.c5 .kpi b{font-size:20pt}.hero.c5 .kpi span{font-size:8.4pt}
+.motto{text-align:center;font-size:12.5pt;font-weight:800;color:var(--plum);background:linear-gradient(90deg,var(--orange-soft),var(--cream) 50%,var(--teal-soft));border-radius:14px;padding:6px 14px;margin:0 0 8px;letter-spacing:.01em}
+.count{font-size:8.4pt;color:var(--muted);margin:-2px 0 4px}.hero .kpi{border-radius:14px;padding:8px 12px;background:var(--teal-soft);border:1px solid #cfe3e0}.hero .kpi b{display:block;font-size:22pt;line-height:1;color:var(--teal)}.hero .kpi span{display:block;font-size:9pt;color:#2f4a48;font-weight:600;margin-top:3px}
+.story{font-size:10.2pt;line-height:1.38;background:var(--cream);border:1px solid var(--line);border-radius:14px;padding:8px 14px}.story p{margin:0 0 4px}.story p:first-child{font-weight:700;color:var(--plum)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch}.card{border:1px solid var(--line);border-radius:14px;padding:8px 12px;background:#fff}
 svg.chart{width:100%;height:auto;display:block}.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:8.5pt;color:var(--muted);margin-top:4px}.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border-radius:999px;padding:4px 10px;font-size:9pt;font-weight:700;background:var(--orange-soft);color:#7a4306;border:1px solid #f3c78a}.chip.new{background:var(--teal-soft);color:#0f4a4a;border-color:#bddcd8}
 .acc{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}.acc div{border-left:4px solid var(--orange);background:#fff;border-radius:8px;padding:5px 9px;font-size:9pt;line-height:1.3}
-table{width:100%;border-collapse:collapse;font-size:8.8pt;table-layout:fixed}th,td{text-align:left;padding:3px 5px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}th{color:var(--muted);font-weight:700;font-size:8pt;text-transform:uppercase;letter-spacing:.06em;background:var(--cream)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-size:8.8pt;table-layout:fixed}th,td{text-align:left;padding:3px 5px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}th{color:var(--muted);font-weight:700;font-size:7.6pt;line-height:1.15;text-transform:uppercase;letter-spacing:.04em;background:var(--cream)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}td.n{white-space:nowrap}
 .note{font-size:8.6pt;color:#2b3534;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .empty{padding:16px;text-align:center;color:var(--muted)}.hidden{display:none !important}
 @page{size:Letter;margin:0}
 @media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar,#measure{display:none!important}.page{box-shadow:none;margin:0;break-after:page;background:#fff}.page:last-child{break-after:auto}}
-@media screen and (max-width:900px){.page{width:100%;height:auto;padding:16px}.hero{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+@media screen and (max-width:900px){.page{width:100%;height:auto;padding:16px}.hero,.hero.c5{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="toolbar">
  <a href="/desk" data-en="← Desk">← Panel</a>
+ <select id="view" aria-label="Vista"><option value="summary" data-en="Personal Summary (one page)">Resumen personal (una página)</option><option value="detailed" data-en="Detailed History">Historial detallado</option></select>
  <select id="preset"><option value="90" data-en="Last 90 days">Últimos 90 días</option><option value="month" data-en="This month">Este mes</option><option value="prev" data-en="Previous month">Mes anterior</option><option value="365" data-en="Last 12 months">Últimos 12 meses</option><option value="custom" data-en="Custom range">Rango personalizado</option></select>
  <input id="from" type="date" aria-label="Desde"><input id="to" type="date" aria-label="Hasta">
  <button id="apply" type="button" data-en="Apply">Aplicar</button>
+ <button id="csv" type="button" class="hidden" data-en="History CSV">CSV del historial</button>
  <button id="language" type="button">English</button>
  <button id="print" class="primary" type="button" data-en="Print / PDF">Imprimir / PDF</button>
  <span id="msg" style="color:#8a1f24;font-weight:700"></span>
