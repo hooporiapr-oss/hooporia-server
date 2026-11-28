@@ -13,7 +13,7 @@ html,body{margin:0;background:#e6e9e8;color:var(--ink);font:10.5pt/1.32 "Segoe U
 .toolbar button,.toolbar select,.toolbar input,.toolbar a{font:600 14px system-ui;min-height:40px;padding:8px 12px;border-radius:10px;border:1px solid #9aa6b0;background:#fff;color:var(--ink);text-decoration:none;cursor:pointer}
 .toolbar .primary{background:var(--teal);color:#fff;border-color:var(--teal)}
 .toolbar label{display:inline-flex;align-items:center;gap:6px;font:600 14px system-ui}
-.page{position:relative;width:var(--page-w);min-height:var(--page-h);margin:0 auto 24px;background:#fff;padding:.45in .55in .4in;box-shadow:0 6px 30px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:10px}
+.page{position:relative;width:var(--page-w);min-height:var(--page-h);margin:0 auto 24px;background:#fff;padding:.45in .55in .6in;box-shadow:0 6px 30px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:10px}
 .sample{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .sample span{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-28deg);font:900 58pt system-ui;letter-spacing:.08em;color:rgba(240,138,16,.13);white-space:nowrap}
 .sample-tag{display:inline-block;border:2px solid var(--orange);color:#8a4a0d;background:var(--orange-soft);border-radius:8px;padding:4px 10px;font-weight:800;font-size:10pt;letter-spacing:.06em}
@@ -27,17 +27,17 @@ h2{font-size:9.5pt;letter-spacing:.14em;text-transform:uppercase;color:var(--tea
 .kpi .delta.up{color:#145c3a;background:#dff3e6}.kpi .delta.down{color:#8a2a1f;background:#fbe3df}
 .two{display:grid;grid-template-columns:1.15fr 1fr;gap:10px;align-items:stretch}
 .card{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-.narr{font-size:10.2pt;line-height:1.42}.narr p{margin:0 0 5px}.narr p:first-child{font-weight:600;color:var(--teal)}
+.narr{font-size:10pt;line-height:1.4}.narr p{margin:0 0 4px}.narr p:first-child{font-weight:600;color:var(--teal)}
 svg.chart{width:100%;height:auto;display:block}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:8.5pt;color:var(--muted);margin-top:4px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 table{width:100%;border-collapse:collapse;font-size:9pt}th,td{text-align:left;padding:3px 5px;white-space:nowrap;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:700;font-size:8.5pt;text-transform:uppercase;letter-spacing:.06em}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .bar{height:9px;border-radius:5px;background:linear-gradient(90deg,var(--teal-mid),var(--orange))}
 .mgmt{border:1.5px dashed var(--orange);background:var(--cream)}.mgmt h2{color:#8a4a0d}.mgmt h2::before{background:var(--plum)}.mgmt .note{font-size:8.5pt;color:#6b5a2b;margin:4px 0 0}
-footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-size:7.3pt;line-height:1.28;flex-shrink:0;color:var(--muted);display:flex;justify-content:space-between;gap:12px}
+footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-size:7.2pt;line-height:1.28;flex-shrink:0;max-width:100%;color:var(--muted);display:flex;justify-content:space-between;gap:12px}
 .empty{padding:20px;text-align:center;color:var(--muted)}
 .hidden{display:none !important}
 @page{size:Letter;margin:0}
-@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{display:none!important}.page{box-shadow:none;margin:0;width:8.5in;height:11in;min-height:0;overflow:hidden;padding:.45in .55in .4in;break-after:avoid}.mgmt.noprint{display:none!important}}
+@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{display:none!important}.page{box-shadow:none;margin:0;width:8.5in;height:11in;min-height:0;overflow:hidden;padding:.45in .55in .6in;break-after:avoid}.mgmt.noprint{display:none!important}}
 @media screen and (max-width:900px){.page{width:100%;min-height:0;padding:16px}.kpis{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
 </style>
 </head>
@@ -76,7 +76,7 @@ footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-
   <p class="note" data-en="Subscription-only figures: the monthly subscription divided by recorded activity. They are not the program's total cost and not savings. Excluded from print unless chosen above.">Cifras solo de la suscripción: la suscripción mensual dividida por la actividad registrada. No son el costo total del programa ni ahorros. Se excluyen de la impresión salvo que se elija arriba.</p>
  </section>
  <footer class="rf">
-  <span id="scope" data-en="Ritnome records the recreation delivered through Ritnome. Recreation minutes = length of facilitated sessions; participations are cumulative; participant minutes = activity minutes × headcount (estimate). Recreational activities, not medical treatment or therapy. No resident names or personal data.">Ritnome registra la recreación realizada a través de Ritnome. Minutos de recreación = duración de las sesiones facilitadas; las participaciones son acumuladas; minutos por participante = minutos de actividad × asistentes (estimado). Actividades recreativas, no tratamiento médico ni terapia. Sin nombres ni datos personales de residentes.</span>
+  <span id="scope" data-en="Ritnome records the recreation delivered through Ritnome. Recreation minutes = length of facilitated sessions; participations are cumulative (one person in several activities counts several times); participant-minutes = activity minutes × recorded attendees (estimate). Recreational activities, not medical treatment or therapy. Ritnome does not collect resident names or medical information; optional individual tracking uses pseudonymous handles.">Ritnome registra la recreación realizada a través de Ritnome. Minutos de recreación = duración de las sesiones facilitadas; las participaciones son acumuladas (una persona en varias actividades cuenta varias veces); minutos-participante = minutos de actividad × asistentes registrados (estimado). Actividades recreativas, no tratamiento médico ni terapia. Ritnome no recopila nombres de residentes ni información médica; el seguimiento individual opcional usa identificadores seudónimos.</span>
   <span id="generated" style="white-space:nowrap"></span>
  </footer>
 </article>

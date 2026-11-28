@@ -49,10 +49,23 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  await p.goto(SERVICE+'/report?period='+ym);await p.waitForTimeout(1200);
  const st=await p.evaluate(()=>({fac:document.getElementById('facility').textContent,kpis:document.getElementById('kpisHero').textContent+' '+document.getElementById('kpis').textContent,narr:document.getElementById('narrative').textContent,sample:document.getElementById('sampleTag').classList.contains('hidden'),mgmtNoPrint:document.getElementById('mgmt').classList.contains('noprint'),util:document.getElementById('util').textContent,weeklyBars:document.querySelectorAll('#weekly rect').length,trendPts:document.querySelectorAll('#trend circle').length,acts:document.querySelectorAll('#activities tr').length-1,lang:document.documentElement.lang}));
  ok('real facility name, Spanish first, no sample label',st.fac==='Residencia Prueba (ficticia)'&&st.lang==='es-PR'&&st.sample);
- ok('KPIs: 3 facilitated sessions, 6 activity runs, 43 minutes (20+10+13)',/^3/.test(st.kpis.trim())&&/6\s*Actividades realizadas/.test(st.kpis)&&/43\s*·/.test(st.kpis));
- ok('narrative reconciles with the KPIs (3 sessions, 6 activities, 43 minutes, Conga Party most conducted)',/realizó 3 sesiones facilitadas de recreación con 6 actividades/.test(st.narr)&&/43 minutos/.test(st.narr)&&/más realizada fue Conga Party \(3 veces\)/.test(st.narr));
+ ok('KPIs: 3 facilitated sessions, 6 activity runs, 43 minutes (20+10+13)',/^3/.test(st.kpis.trim())&&/6\s*Actividades ejecutadas/.test(st.kpis)&&/43\s*·/.test(st.kpis));
+ ok('narrative reconciles with the KPIs (3 sessions, 6 activities, 43 minutes, Conga Party most conducted)',/realizó 3 sesiones facilitadas de recreación con 6 actividades ejecutadas/.test(st.narr)&&/43 minutos/.test(st.narr)&&/más realizada fue Conga Party \(3 veces\)/.test(st.narr));
  ok('no comparable previous period is stated, not invented',/No hay un período anterior comparable/.test(st.narr));
  ok('charts and table drawn',st.weeklyBars>=2&&st.trendPts===6&&st.acts>=3);
+ // ---- reconciliation (independent review items)
+ const ex=await p.evaluate(async y=>{const r=await fetch('/reporting/executive?period='+y,{credentials:'same-origin'});return r.json();},ym);
+ const mg=await p.evaluate(async y=>{const r=await fetch('/reporting/management?month='+y,{credentials:'same-origin'});return r.json();},ym);
+ const sumP=ex.activities.reduce((a,x)=>a+Number(x.participations),0),sumR=ex.activities.reduce((a,x)=>a+Number(x.runs),0);
+ ok('activity-level participations and runs sum to the institutional totals (same period, same definitions)',sumP===Number(ex.summary.participations)&&sumR===Number(ex.summary.activity_runs)&&sumP===54&&sumR===6);
+ const wk=ex.weekly.reduce((a,x)=>a+Number(x.planned),0);
+ ok('weekly planned targets (prorated by day) add up to the period planned target',Math.abs(wk-Number(ex.summary.planned_sessions))<=0.05*ex.weekly.length+0.05&&ex.weekly.some(x=>x.partial&&Number(x.planned)<5));
+ ok('average line distinguishes participations per session from recorded attendees',await p.evaluate(()=>/participaciones/.test(document.getElementById('narrative').textContent)&&/asistentes registrados \(máximo por sesión\)/.test(document.getElementById('narrative').textContent)));
+ ok('attendees per session is the max headcount per session (8, 12, 10 → 10.0), not participations ÷ sessions (18.0)',Number(ex.avg_headcount)===10&&Math.round(Number(ex.summary.participations)/Number(ex.summary.sessions)*10)/10===18);
+ ok('dashboard (management) and executive report share identical summary totals',['sessions','activity_runs','participations','recreation_minutes','estimated_participant_minutes','activity_variety','active_days','planned_sessions'].every(k=>String(mg.summary[k])===String(ex.summary[k])));
+ const numsEs=(await p.evaluate(()=>document.getElementById('narrative').textContent)).match(/\d+(?:[.,]\d+)?/g);await p.click('#language');await p.waitForTimeout(300);const numsEn=(await p.evaluate(()=>document.getElementById('narrative').textContent)).match(/\d+(?:[.,]\d+)?/g);await p.click('#language');await p.waitForTimeout(200);
+ ok('Spanish and English narratives carry the same numbers in the same order',JSON.stringify(numsEs)===JSON.stringify(numsEn));
+ ok('terminology: participant-minutes and activity runs labeled as agreed',await p.evaluate(()=>/Minutos-participante estimados/.test(document.getElementById('kpis').textContent)&&/Actividades ejecutadas/.test(document.getElementById('kpis').textContent)&&/no recopila nombres de residentes ni información médica/.test(document.getElementById('scope').textContent)));
  ok('utilization block is management-only and excluded from print by default',st.mgmtNoPrint&&/\$149/.test(st.util)&&/\$49\.67/.test(st.util));
  await p.click('#withMgmt');ok('owner can choose to include utilization in print',await p.evaluate(()=>!document.getElementById('mgmt').classList.contains('noprint')));await p.click('#withMgmt');
  await p.click('#language');await p.waitForTimeout(300);
@@ -61,6 +74,11 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  const pdf=path.join(process.env.RITNOME_OUT||'/tmp','ritnome-report-test.pdf');await p.pdf({path:pdf,format:'Letter',printBackground:true,preferCSSPageSize:true});
  let pages=null;try{const buf=fs.readFileSync(pdf);pages=(buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)||[]).length;}catch{}
  ok('prints to exactly one US Letter page',pages===1);
+ // CSV from the desk reconciles with the same totals
+ await p.goto(SERVICE+'/desk');await p.waitForTimeout(900);await p.click('[data-tab=progress]');await p.waitForTimeout(700);
+ const dl=p.waitForEvent('download',{timeout:5000});await p.click('#csv');const d=await dl;const csvPath=path.join(process.env.RITNOME_OUT||'/tmp','ritnome-mgmt-test.csv');await d.saveAs(csvPath);const csv=fs.readFileSync(csvPath,'utf8');
+ const cell=k=>{const m=csv.split(/\r?\n/).find(l=>l.replace(/"/g,'').startsWith(k+','));return m?m.replace(/"/g,'').split(',')[1]:null;};
+ ok('CSV export carries the same sessions, activity runs, participations and planned target as the report',Number(cell('sessions'))===Number(ex.summary.sessions)&&Number(cell('activity_runs'))===Number(ex.summary.activity_runs)&&Number(cell('participations'))===Number(ex.summary.participations)&&Number(cell('planned_sessions'))===Number(ex.summary.planned_sessions));
  // facilitator: page loads, data refused
  const ctx2=await browser.newContext({viewport:{width:1100,height:1500}});const f=await ctx2.newPage();f.on('pageerror',e=>errs.push(e.message));
  await f.goto(SERVICE+'/desk');await f.fill('#email','staff@a');await f.fill('#password','pw');await f.click('#form button[type=submit]');await f.waitForTimeout(900);

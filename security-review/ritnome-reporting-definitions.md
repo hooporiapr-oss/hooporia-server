@@ -9,7 +9,7 @@ Every dashboard, printed report and CSV draws from the same two functions (`ritn
 | Participations | Cumulative over runs: one person in five activities counts five. |
 | Headcount (session) | The largest headcount recorded in the session — people present — never the sum of the runs' headcounts. |
 | Recreation minutes | Per session: from the first run's start to the last run's end. Overlapping runs (two stations) never add up twice. |
-| Estimated participant minutes | Sum over runs of run minutes × that run's headcount (two stations at once are two groups of people). Labeled as an estimate. |
+| Estimated participant-minutes (Minutos-participante estimados) | Sum over runs of run minutes × that run's headcount (two stations at once are two groups of people). Labeled as an estimate. |
 | Activity variety | Distinct activities run in the period. |
 | Active days | Distinct Puerto Rico dates with at least one run. |
 | Unique participants | Only when the facility uses handles; labeled "tracked"; never implies every resident. |
@@ -18,3 +18,9 @@ Every dashboard, printed report and CSV draws from the same two functions (`ritn
 | Estimated sessions | Runs recorded before R1 have no parent; they are grouped by a 45-minute gap per facilitator session and flagged `estimated`. |
 | Abandoned | A run with no activity for 30 minutes is abandoned and excluded. A session ended with no runs is abandoned and excluded. The inactivity lock, sign-out and a new Today's Session all close the open session. |
 | Growth | Never computed from a zero denominator; shown as insufficient data. |
+
+## Reporting standard (R2, approved 2026-11-28)
+- Every Progress View report uses the executive report's header (official logo, "PROGRESS VIEW · Informes institucionales"), palette (deep teal + warm orange/coral/plum accents), hero indicators, Spanish-first text with English toggle, US Letter one page for executive summaries, and this vocabulary: *sesiones facilitadas*, *actividades ejecutadas*, *participaciones* (cumulative), *minutos de recreación*, *minutos-participante estimados*, *asistentes registrados (máximo por sesión)*, *participantes únicos (con identificador)*.
+- Averages: "participaciones por sesión facilitada" = participations ÷ sessions; "asistentes registrados" = average of each session's maximum recorded headcount. They are never presented as distinct people.
+- Reconciliation tests (ritnome-report.browser.test.js): activity rows sum to institutional totals; weekly prorated targets sum to the period target; dashboard, report and CSV share totals; Spanish and English carry the same numbers.
+- Privacy wording: Ritnome does not collect resident names or medical information; optional individual tracking uses pseudonymous handles.

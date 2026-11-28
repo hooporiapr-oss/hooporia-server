@@ -59,7 +59,7 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  await p.goto(SERVICE+'/desk');await p.waitForTimeout(900);
  ok('desk shows the session in progress with an end button',await p.evaluate(()=>!document.getElementById('session').hidden&&/Sesión en curso/.test(document.getElementById('session').textContent)&&!!document.getElementById('endSession')));
  await p.click('#endSession');await p.waitForTimeout(700);ok('ending the session hides the line',await p.evaluate(()=>document.getElementById('session').hidden));
- ok('today KPIs show sessions and activity runs separately',await p.evaluate(()=>/Sesiones/.test(document.getElementById('todayKpis').textContent)&&/Actividades realizadas/.test(document.getElementById('todayKpis').textContent)));
+ ok('today KPIs show sessions and activity runs separately',await p.evaluate(()=>/Sesiones/.test(document.getElementById('todayKpis').textContent)&&/Actividades ejecutadas/.test(document.getElementById('todayKpis').textContent)));
  ok('no token or session id stored in the browser',await p.evaluate(()=>!Object.keys(localStorage).some(k=>/token|session/i.test(k))&&!Object.keys(sessionStorage).length&&!document.cookie.includes('ritnome_fs')));
  await ctx.close();
  // owner on a desktop
