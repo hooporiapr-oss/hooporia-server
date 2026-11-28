@@ -124,6 +124,18 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
   const cats={};for(const a of catalog.activities)cats[a.key]={es:a.es,en:a.en,category:a.category};
   d.catalog=cats;d.categories=catalog.categories;res.status(200).json(d);
  });
+ // Mi Trayectoria: one handle's recreational history for a date range (owner/manager; facility handles only).
+ h.journey=wrap(async(req,res)=>{
+  const c=await requireSession(req,true);
+  const id=String(req.query?.handle||'');if(!uuid.test(id))throw fail(400,'invalid');
+  const from=String(req.query?.from||''),to=String(req.query?.to||'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to))throw fail(400,'invalid');
+  const toExcl=new Date(Date.UTC(+to.slice(0,4),+to.slice(5,7)-1,+to.slice(8,10)+1)).toISOString().slice(0,10);
+  const d=await rpc('ritnome_rep_journey',{p_session:c.id,p_price:priceId,p_handle:id,p_from:from,p_to_excl:toExcl});
+  if(!d||d.ok!==true)throw fail(d&&d.reason==='role'?403:d&&d.reason==='handles_off'?409:d&&d.reason==='no_handle'?404:400,d?d.reason:'invalid');
+  const cats={};for(const a of catalog.activities)cats[a.key]={es:a.es,en:a.en,category:a.category};
+  d.catalog=cats;d.label=label(id);d.available_activities=catalog.activities.filter(a=>a.available).length;res.status(200).json(d);
+ });
  h.management=wrap(async(req,res)=>{const c=await requireSession(req,true);const m=String(req.query?.month||'');if(m&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(m))throw fail(400,'invalid');
   const d=await rpc('ritnome_rep_management',{p_session:c.id,p_price:priceId,p_month:m?m+'-01':null});if(d?.ok!==true)throw fail(d?.reason==='role'?403:401,d?.reason||'sign_in');res.status(200).json(d);});
  h.plan=wrap(async(req,res)=>{const c=await requireSession(req,true);const b=req.body||{};
@@ -173,6 +185,7 @@ function mountReporting(app,express,reporting){
  app.get('/reporting/management',reporting.management);
  app.get('/reporting/executive',reporting.executive);
  app.get('/reporting/record',reporting.record);
+ app.get('/reporting/journey',reporting.journey);
  app.post('/reporting/plan',json,reporting.plan);
  app.get('/reporting/handles',reporting.handles);
  app.post('/reporting/handles',json,reporting.handleCreate);

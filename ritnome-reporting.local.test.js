@@ -100,6 +100,13 @@ let pass=0;const ok=(name,cond)=>{assert.ok(cond,name);pass++;console.log('✔ '
  r=await api('/reporting/handles',{method:'POST',cookie:cOwnerB});ok('opted-out facility cannot create handles → 403',r.status===403);
  r=await api('/reporting/individual?handle='+handle,{cookie:cOwnerB});ok('facility B cannot read A handle → 403',r.status===403);
  r=await api('/reporting/individual?handle='+handle,{cookie:cOwner});ok('owner reads individual progress (empty)',r.status===200&&r.body.participation.runs===0);
+ // R5 — Mi Trayectoria
+ const jq='&from=2026-01-01&to=2026-12-31';
+ r=await api('/reporting/journey?handle='+handle+jq,{cookie:cStaff});ok('journey: facilitator → 403',r.status===403);
+ r=await api('/reporting/journey?handle='+handle+jq,{cookie:cOwnerB});ok('journey: facility with handles off → 409',r.status===409&&r.body.reason==='handles_off');
+ r=await api('/reporting/journey?handle='+crypto.randomUUID()+jq,{cookie:cOwner});ok('journey: unknown handle → 404',r.status===404);
+ r=await api('/reporting/journey?handle=nope'+jq,{cookie:cOwner});ok('journey: bad handle → 400',r.status===400);
+ r=await api('/reporting/journey?handle='+handle+jq,{cookie:cOwner});ok('journey: owner reads own-facility journey (empty)',r.status===200&&r.body.summary.entries===0&&r.body.label===handle.slice(0,6).toUpperCase()&&typeof r.body.available_activities==='number'&&r.body.catalog&&Array.isArray(r.body.history));
  // session end revokes token immediately
  r=await api('/reporting/session/end',{method:'POST',cookie:cStaff});ok('session end clears cookie',r.status===200&&r.cookie==='ritnome_fs=');
  const run2=crypto.randomUUID();r=await api('/reporting/report',{method:'POST',headers:{Authorization:'Bearer '+token},origin:'https://ritnome.com',body:{run:run2,seq:1,kind:'start',payload:{}}});ok('token of an ended session cannot report → 401',r.status===401);
