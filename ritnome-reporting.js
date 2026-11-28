@@ -4,6 +4,8 @@
 const crypto=require('node:crypto');
 const catalog=require('./ritnome-activity-catalog');
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Participant handle label: pseudonymous, derived from the id, same everywhere (desk and station).
+const label=id=>String(id).replace(/-/g,'').slice(0,6).toUpperCase();
 const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
 const rnd=()=>crypto.randomBytes(32).toString('base64url');
 const COOKIE='ritnome_fs';
@@ -72,7 +74,9 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
   const token=rnd();
   const rows=await rpc('ritnome_rep_launch_exchange',{p_code_hash:sha(code),p_origin:origin,p_token_hash:sha(token),p_price:priceId});const x=Array.isArray(rows)?rows[0]:rows;
   if(!x||x.ok!==true)throw fail(401,x?x.reason:'invalid');
-  res.status(200).json({ok:true,token,activity:x.activity_key,expires_at:x.expires_at,handles_enabled:x.handles_enabled===true,language:x.language});
+  let handles=[];
+  if(x.handles_enabled===true){const hs=await rpc('ritnome_rep_token_handles',{p_token_hash:sha(token),p_origin:origin,p_price:priceId});handles=(Array.isArray(hs)?hs:[]).map(h=>({id:h.handle_id,label:label(h.handle_id)}));}
+  res.status(200).json({ok:true,token,activity:x.activity_key,expires_at:x.expires_at,handles_enabled:x.handles_enabled===true,language:x.language,handles});
  });
  h.report=wrap(async(req,res)=>{
   const origin=cors(req,res);if(!origin)throw fail(403,'origin');
@@ -92,7 +96,7 @@ function createReporting({base,auth,priceId,livemode,secureCookies=true,now=()=>
   const spw=b.sessions_per_week==null?null:Number(b.sessions_per_week);const he=b.handles_enabled==null?null:b.handles_enabled===true;
   if(spw!=null&&(!Number.isInteger(spw)||spw<0||spw>50))throw fail(400,'invalid');
   const ok=await rpc('ritnome_rep_set_plan',{p_session:c.id,p_price:priceId,p_sessions_per_week:spw,p_handles_enabled:he});if(ok!==true)throw fail(403,'role');res.status(200).json({ok:true});});
- h.handles=wrap(async(req,res)=>{const c=await requireSession(req,false);res.status(200).json({ok:true,handles:await rpc('ritnome_rep_handles',{p_session:c.id,p_price:priceId})||[]});});
+ h.handles=wrap(async(req,res)=>{const c=await requireSession(req,false);const rows=await rpc('ritnome_rep_handles',{p_session:c.id,p_price:priceId})||[];res.status(200).json({ok:true,handles:rows.map(r=>({...r,label:label(r.handle_id)}))});});
  h.handleCreate=wrap(async(req,res)=>{const c=await requireSession(req,true);const id=await rpc('ritnome_rep_handle_create',{p_session:c.id,p_price:priceId});if(!uuid.test(id||''))throw fail(403,'handles_off');res.status(200).json({ok:true,handle_id:id});});
  h.handleRetire=wrap(async(req,res)=>{const c=await requireSession(req,true);const id=String(req.body?.handle_id||'');if(!uuid.test(id))throw fail(400,'invalid');const ok=await rpc('ritnome_rep_handle_retire',{p_session:c.id,p_price:priceId,p_handle:id});res.status(ok===true?200:404).json({ok:ok===true});});
  h.individual=wrap(async(req,res)=>{const c=await requireSession(req,true);const id=String(req.query?.handle||'');if(!uuid.test(id))throw fail(400,'invalid');const d=await rpc('ritnome_rep_individual',{p_session:c.id,p_price:priceId,p_handle:id});if(d?.ok!==true)throw fail(403,d?.reason||'handles_off');res.status(200).json(d);});

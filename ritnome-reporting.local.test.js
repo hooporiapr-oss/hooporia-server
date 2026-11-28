@@ -46,9 +46,9 @@ let pass=0;const ok=(name,cond)=>{assert.ok(cond,name);pass++;console.log('✔ '
  r=await api('/reporting/session',{method:'POST',headers:{Authorization:tok('ownerB')}});const cOwnerB=r.cookie;ok('facility B owner session opens',r.status===200);
  r=await api('/reporting/me');ok('no cookie → 401',r.status===401);
  r=await api('/reporting/me',{cookie:'ritnome_fs='+crypto.randomUUID()});ok('forged session id → 401',r.status===401);
- r=await api('/reporting/library',{cookie:cStaff});ok('library lists only verified activities',r.status===200&&r.body.activities.length===1&&r.body.activities[0].key==='conga-party');
+ r=await api('/reporting/library',{cookie:cStaff});ok('library lists exactly the verified activities, flagship first',r.status===200&&r.body.activities.length===catalog.activities.filter(a=>a.available).length&&r.body.activities.every(a=>catalog.byKey.get(a.key).available)&&r.body.activities.some(a=>a.key==='conga-party'));
  // launch + exchange
- r=await api('/reporting/launch',{method:'POST',cookie:cStaff,body:{activity:'recall'}});ok('unverified activity cannot be launched',r.status===404);
+ catalog.byKey.get('recall').available=false;r=await api('/reporting/launch',{method:'POST',cookie:cStaff,body:{activity:'recall'}});ok('unverified activity cannot be launched',r.status===404);catalog.byKey.get('recall').available=true;
  r=await api('/reporting/launch',{method:'POST',cookie:cStaff,body:{activity:'conga-party'}});ok('launch returns a fragment URL on the activity host',r.status===200&&r.body.url.startsWith('https://ritnome.com/conga-party.html#rl=')&&r.body.expires_in===60);
  const code=r.body.url.split('#rl=')[1];
  r=await api('/reporting/exchange',{method:'POST',body:{code},origin:'https://evil.test'});ok('exchange from an unlisted origin refused (no CORS)',r.status===403&&!r.acao);

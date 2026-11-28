@@ -64,3 +64,8 @@ Enrollment is by invitation; the browser can never pick a price, customer or fac
 ## Phase 4 released (2026-11-28)
 - All 15 activities verified by the activity gate (106 checks) and marked available in the library. Game sites merged to main: ritnome-bpm (auto-deploy), reaction-velocity = vreaction-velocity on GitHub (same repo, auto-deploy), fortress-mobi (manual deploy).
 - Institutional mode on the game sites is entered only by the launch code in the URL fragment; athlete/school use is unchanged.
+
+## Phase 5 — participant handles at the station (pending "ok to push")
+- When a facility has handles on, the station asks "who is at this station" after the headcount (labels only, six characters derived from the id; no names anywhere) and the banner lets the facilitator switch participant. Each finished game adds a progress row for that handle (setting, personal BPM or level, result). Facility totals are unchanged.
+- Desk: handles show the same labels; Individual Progress lists runs, minutes, activities, personal BPM over time, and per activity + setting the first sessions (baseline) and the latest.
+- Migration: `security-review/ritnome-phase5.sql` (one read-only function for the station's handle list). Release: apply, deploy the service, deploy the three game sites (glue sends progress).
