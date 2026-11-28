@@ -49,7 +49,7 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  const st=await p.evaluate(()=>({pages:document.querySelectorAll('.page').length,txt:document.getElementById('pages').textContent,fac:document.querySelector('.fac').textContent,footers:[...document.querySelectorAll('.pf')].map(x=>x.textContent),sess:document.querySelectorAll('tr.sess').length,acts:document.querySelectorAll('tr.act').length,lang:document.documentElement.lang}));
  ok('record renders for the facilitator with the facility name, Spanish first',st.fac==='Residencia Prueba (ficticia)'&&st.lang==='es-PR');
  ok('3 facilitated sessions (one standalone) and 6 activity runs listed chronologically',st.sess===3&&st.acts===6&&/Actividad suelta/.test(st.txt)&&/Sesión facilitada · 3 actividades/.test(st.txt));
- ok('settings shown where recorded (92 BPM, comfort)',/92 BPM/.test(st.txt)&&/comfort/.test(st.txt));
+ ok('settings shown where recorded (92 BPM, modo cómodo)',/92 BPM/.test(st.txt)&&/modo cómodo/.test(st.txt)&&!/\bcomfort\b/.test(st.txt));
  ok('every page carries "Página n de N" and the generation stamp',st.footers.length===st.pages&&st.footers.every((f,i)=>new RegExp(`Página ${i+1} de ${st.pages}`).test(f)&&/America\/Puerto_Rico/.test(f)));
  ok('scope and privacy statement with the no-certification wording, and a signature line',/no constituye certificación regulatoria/.test(st.txt)&&/no recopila nombres de residentes ni información médica/.test(st.txt)&&/Firma y fecha/.test(st.txt));
  ok('planned vs delivered by week with a period total',/Programación planificada vs realizada/.test(st.txt)&&/Total del período/.test(st.txt));
