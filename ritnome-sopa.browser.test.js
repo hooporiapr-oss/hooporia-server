@@ -69,6 +69,20 @@ ok(await p.evaluate(()=>{document.getElementById('back').click();return document
 await p.reload();await p.waitForTimeout(200);ok((await state()).found===3,'reload restores unfinished puzzle');
 // confirm yes -> new
 await p.click('#newBtn');await p.click('#cYes');ok((await state()).found===0,'confirmed new game starts fresh');
+// selection-only protection (zero words found)
+await p.evaluate(()=>clearSel());w0=await wordCells(0);await tapPath(w0.slice(0,2));
+ok(await p.evaluate(()=>found.length===0&&selected.length===2),'setup: 2 letters selected, 0 words found');
+await p.click('.cat[data-cat="pueblos"]');ok(await p.evaluate(()=>document.getElementById('confirm').style.display==='flex'&&cat==='comida'&&/letras|letters/.test(document.getElementById('cText').textContent)),'category change asks when only letters are selected');
+await p.click('#cKeep');ok(await p.evaluate(()=>selected.length===2&&cat==='comida'),'keep playing preserves selection');
+await p.selectOption('#size','12');ok(await p.evaluate(()=>document.getElementById('confirm').style.display==='flex'&&SIZE===8),'size change asks when only letters are selected');await p.keyboard.press('Escape');
+await p.click('#newBtn');ok(await p.evaluate(()=>document.getElementById('confirm').style.display==='flex'),'New asks when only letters are selected');await p.click('#cKeep');
+ok(await p.evaluate(()=>{document.getElementById('back').click();return document.getElementById('confirm').style.display==='flex'}),'back arrow asks when only letters are selected');await p.click('#cKeep');
+await p.reload();await p.waitForTimeout(150);ok(await p.evaluate(()=>selected.length===2&&found.length===0),'reload restores a selection-only puzzle');
+await p.click('#clear');await p.click('.cat[data-cat="pueblos"]');ok(await p.evaluate(()=>document.getElementById('confirm').style.display!=='flex'&&cat==='pueblos'),'no prompt when nothing is selected and nothing found');
+await p.click('.cat[data-cat="comida"]');
+// legend: completed words show different colours
+ok(await p.evaluate(()=>{const sw=[...document.querySelectorAll('.swrow .sw')].map(e=>getComputedStyle(e).backgroundColor);return sw.length>=3&&new Set(sw).size===sw.length&&/color|color/.test(document.getElementById('lgFnd').textContent)}),'legend shows several different completed-word colours with explanatory text');
+await p.click('#language');ok(await p.evaluate(()=>/own color|each word/i.test(document.getElementById('lgFnd').textContent)),'legend explained in English');await p.click('#language');
 // completion
 const n=(await state()).total;for(let i=0;i<n;i++){const wc=await wordCells(i);await tapPath(wc)}
 s=await state();ok(s.found===n&&s.done==='block','all words found -> doneMsg display:block (institutional hook)');
