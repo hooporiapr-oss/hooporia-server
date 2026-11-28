@@ -44,7 +44,7 @@ footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-
 <body>
 <div class="toolbar">
  <a href="/desk" class="back" data-en="← Desk">← Panel</a>
- <select id="kind"><option value="month" data-en="Monthly">Mensual</option><option value="quarter" data-en="Quarterly">Trimestral</option></select>
+ <select id="kind"><option value="month" data-en="Monthly">Mensual</option><option value="quarter" data-en="Quarterly">Trimestral</option><option value="trial" data-en="Trial period">Período de prueba</option></select>
  <input id="month" type="month" aria-label="Mes">
  <select id="quarter" class="hidden"></select>
  <label><input id="withMgmt" type="checkbox"> <span data-en="Include utilization in print">Incluir utilización al imprimir</span></label>
@@ -56,18 +56,19 @@ footer.rf{margin-top:auto;border-top:1px solid var(--line);padding-top:6px;font-
  <div id="sampleMark" class="sample hidden"><span data-en="SAMPLE DATA">DATOS DE MUESTRA</span></div>
  <header class="rh">
   <div class="brand"><img src="/logo.png" alt="Ritnome"><div class="pv"><b>PROGRESS VIEW</b><small data-en="INSTITUTIONAL REPORTING">INFORMES INSTITUCIONALES</small></div></div>
-  <div class="title"><h1 data-en="Institutional Executive Report">Informe ejecutivo institucional</h1><div class="fac" id="facility">—</div><div class="per" id="periodLine">—</div><div id="sampleTag" class="hidden" style="margin-top:4px"><span class="sample-tag" data-en="SAMPLE DATA · FICTIONAL FACILITY">DATOS DE MUESTRA · INSTITUCIÓN FICTICIA</span></div></div>
+  <div class="title"><h1 id="h1" data-en="Institutional Executive Report">Informe ejecutivo institucional</h1><div class="fac" id="facility">—</div><div class="per" id="periodLine">—</div><div id="sampleTag" class="hidden" style="margin-top:4px"><span class="sample-tag" data-en="SAMPLE DATA · FICTIONAL FACILITY">DATOS DE MUESTRA · INSTITUCIÓN FICTICIA</span></div></div>
  </header>
  <section>
-  <h2 data-en="The month at a glance">El mes de un vistazo</h2>
+  <h2 id="glance" data-en="The month at a glance">El mes de un vistazo</h2>
   <div class="kpis hero" id="kpisHero"></div><div class="kpis minor" id="kpis"></div>
  </section>
- <section class="two">
+ <section id="onboard" class="card hidden" style="border-color:var(--orange);background:var(--cream)"><h2 data-en="Getting started">Primeros pasos</h2><div id="onboardBody"></div></section>
+<section class="two">
   <div class="card"><h2 data-en="Summary">Resumen</h2><div class="narr" id="narrative"></div></div>
   <div class="card"><h2 data-en="Sessions delivered vs planned, by week">Sesiones realizadas vs planificadas, por semana</h2><div id="weekly"></div></div>
  </section>
- <section class="two">
-  <div class="card"><h2 data-en="Six-month trend · facilitated sessions">Tendencia de seis meses · sesiones facilitadas</h2><div id="trend"></div></div>
+ <section class="two" id="rowTrend">
+  <div class="card" id="trendCard"><h2 data-en="Six-month trend · facilitated sessions">Tendencia de seis meses · sesiones facilitadas</h2><div id="trend"></div></div>
   <div class="card"><h2 data-en="Most conducted activities">Actividades más realizadas</h2><div id="activities"></div></div>
  </section>
  <section class="card mgmt noprint" id="mgmt">

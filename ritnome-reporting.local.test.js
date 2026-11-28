@@ -83,6 +83,10 @@ let pass=0;const ok=(name,cond)=>{assert.ok(cond,name);pass++;console.log('✔ '
  r=await api('/reporting/executive?period=2026-13',{cookie:cOwner});ok('invalid period rejected',r.status===400);
  r=await api('/reporting/executive?period='+new Date().toISOString().slice(0,7),{cookie:cStaff});ok('facilitator cannot read the executive report',r.status===403);
  r=await api('/reporting/executive?period=2031-01',{cookie:cOwner});ok('future period rejected',r.status===400);
+ await db.query(`UPDATE public.ritnome_subscription_registry SET billing_status='trialing',paid_through=now()+interval '9 days' WHERE facility_id='facbbbbb-0000-0000-0000-00000000000b'`);
+ r=await api('/reporting/executive?period=trial',{cookie:cOwnerB});ok('trial value report: window from enrollment to trial end, trialing, days left',r.status===200&&r.body.period_kind==='trial'&&r.body.trial.trialing===true&&r.body.trial.days_left>=8&&r.body.summary.sessions===0);
+ r=await api('/reporting/executive?period=trial',{cookie:cStaff});ok('facilitator cannot read the trial report',r.status===403);
+ r=await api('/reporting/executive?period=trial',{cookie:cOwner});ok('a paid (non-trialing) facility still gets its first 14 days as the trial period',r.status===200&&r.body.trial.trialing===false);
  r=await api('/reporting/management',{cookie:cOwner});ok('owner management summary',r.status===200&&r.body.summary.sessions===1&&r.body.summary.participations===10&&r.body.summary.unique_participants_tracked===false&&r.body.summary.unique_participants===null&&Array.isArray(r.body.trend));
  r=await api('/reporting/management?month=2026-13',{cookie:cOwner});ok('bad month → 400',r.status===400);
  r=await api('/reporting/plan',{method:'POST',cookie:cStaff,body:{sessions_per_week:7}});ok('facilitator cannot set plan → 403',r.status===403);

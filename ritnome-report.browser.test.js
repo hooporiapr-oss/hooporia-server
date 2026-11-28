@@ -87,6 +87,14 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  // sample mode is explicitly labeled
  await p.goto(SERVICE+'/report?sample=1&period=2026-10');await p.waitForTimeout(600);
  ok('sample mode shows the SAMPLE DATA watermark and tag',await p.evaluate(()=>!document.getElementById('sampleTag').classList.contains('hidden')&&!document.getElementById('sampleMark').classList.contains('hidden')&&/ficticia/.test(document.getElementById('facility').textContent)));
+ // R4: trial value report
+ await db.query(`UPDATE public.ritnome_subscription_registry SET billing_status='trialing',created_at=now()-interval '4 days',paid_through=now()+interval '10 days' WHERE facility_id=$1`,[FAC]);
+ await p.goto(SERVICE+'/report?period=trial');await p.waitForTimeout(1200);
+ ok('trial report: title, day counter, days left, no comparisons, no utilization block',await p.evaluate(()=>/Informe de valor de la prueba/.test(document.getElementById('h1').textContent)&&/día \d+\/14/.test(document.getElementById('periodLine').textContent)&&/días restantes/.test(document.getElementById('periodLine').textContent)&&document.querySelectorAll('.delta').length===0&&document.getElementById('mgmt').classList.contains('hidden')));
+ ok('trial report uses real sessions when they exist (3 sessions)',await p.evaluate(()=>/^3/.test(document.getElementById('kpisHero').textContent.trim())&&document.getElementById('onboard').classList.contains('hidden')));
+ await db.query(`UPDATE public.ritnome_activity_run SET status='abandoned'`);await p.reload();await p.waitForTimeout(1200);
+ ok('empty trial shows the onboarding steps instead of invented accomplishments',await p.evaluate(()=>!document.getElementById('onboard').classList.contains('hidden')&&/Sesión de hoy/.test(document.getElementById('onboardBody').textContent)&&/^0/.test(document.getElementById('kpisHero').textContent.trim())));
+ await db.query(`UPDATE public.ritnome_activity_run SET status='closed'`);
  ok('no page errors',errs.length===0);
  await browser.close();server.close();await db.end();console.log('PASS '+pass);
 })().catch(e=>{console.error('✘ '+e.message);process.exit(1);});
