@@ -14,3 +14,4 @@
 - Activity gate (Phase 4, one block per onboarded activity: athlete mode untouched, institutional run start/report/close, no athlete-database calls): `RITNOME_TEST_DATABASE_URL=... RITNOME_BPM_DIR=... RITNOME_RV_DIR=<reaction-velocity checkout> RITNOME_MOBI_DIR=<fortress-mobi checkout> node ritnome-activities.browser.test.js`.
 
 Never point any suite at a hosted Supabase project.
+- Progress View landing suite (R6: six cards by role, desk weekly = desk month = Executive Report = Program Record = CSV for partial, mid-week and empty months, Puerto Rico 23:30 boundary, manager read-only settings, trial card states, complete English, 3/2/1 columns without horizontal scroll; data from the demo-facility script): `RITNOME_TEST_DATABASE_URL=... node ritnome-pv.browser.test.js`.

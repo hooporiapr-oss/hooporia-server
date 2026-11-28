@@ -68,8 +68,8 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  await p.close();
  // desk: Individual Progress shows the participant's runs, baseline and latest
  const d=await ctx.newPage();d.on('pageerror',e=>errs.push(e.message));await d.goto(SERVICE+'/desk');await d.fill('#email','owner@a');await d.fill('#password','pw');await d.click('#form button[type=submit]');await d.waitForTimeout(900);
- await d.click('[data-tab=progress]');await d.waitForTimeout(600);
- ok('handles table shows labels and one session each (both played in the same run)',await d.evaluate(()=>{const tds=[...document.querySelectorAll('#handlesTable tr')].slice(1).map(r=>[...r.children].map(c=>c.textContent.trim()));return tds.length===2&&/^[0-9A-F]{6}$/.test(tds[0][0])&&tds[0][2]==='1'&&tds[1][2]==='1';}));
+ await d.click('[data-tab=progress]');await d.waitForTimeout(600);await d.click('[data-card=journey]');await d.waitForTimeout(300);
+ ok('handles table shows labels and one recorded activity each (both played in the same run)',await d.evaluate(()=>{const tds=[...document.querySelectorAll('#handlesTable tr')].slice(1).map(r=>[...r.children].map(c=>c.textContent.trim()));return tds.length===2&&/^[0-9A-F]{6}$/.test(tds[0][0])&&tds[0][2]==='1'&&tds[1][2]==='1';}));
  await d.click('#handlesTable button[data-view] >> nth=0');await d.waitForTimeout(700);
  ok('Individual Progress: Reaction Speed, comfort setting, baseline 70 → latest 74',await d.evaluate(()=>{const tx=document.getElementById('individual').textContent;return /Reaction Speed/.test(tx)&&/comfort/.test(tx)&&/bpm: 70/.test(tx)&&/bpm: 74/.test(tx)&&/70 → 74/.test(tx);}));
  ok('no page errors',errs.length===0);

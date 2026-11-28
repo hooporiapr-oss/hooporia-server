@@ -75,7 +75,7 @@ let pass=0;const ok=(n,c)=>{assert.ok(c,n);pass++;console.log('✔ '+n);};
  let pages=null;try{const buf=fs.readFileSync(pdf);pages=(buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)||[]).length;}catch{}
  ok('prints to exactly one US Letter page',pages===1);
  // CSV from the desk reconciles with the same totals
- await p.goto(SERVICE+'/desk');await p.waitForTimeout(900);await p.click('[data-tab=progress]');await p.waitForTimeout(700);
+ await p.goto(SERVICE+'/desk');await p.waitForTimeout(900);await p.click('[data-tab=progress]');await p.waitForTimeout(700);await p.click('[data-card=exec]');await p.waitForTimeout(300);
  const dl=p.waitForEvent('download',{timeout:5000});await p.click('#csv');const d=await dl;const csvPath=path.join(process.env.RITNOME_OUT||'/tmp','ritnome-mgmt-test.csv');await d.saveAs(csvPath);const csv=fs.readFileSync(csvPath,'utf8');
  const cell=k=>{const m=csv.split(/\r?\n/).find(l=>l.replace(/"/g,'').startsWith(k+','));return m?m.replace(/"/g,'').split(',')[1]:null;};
  ok('CSV export carries the same sessions, activity runs, participations and planned target as the report',Number(cell('sessions'))===Number(ex.summary.sessions)&&Number(cell('activity_runs'))===Number(ex.summary.activity_runs)&&Number(cell('participations'))===Number(ex.summary.participations)&&Number(cell('planned_sessions'))===Number(ex.summary.planned_sessions));
