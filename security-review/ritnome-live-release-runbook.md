@@ -56,7 +56,7 @@ Enrollment is by invitation; the browser can never pick a price, customer or fac
 - Evidence per checkpoint: SQL suite 64/64, service suite 35/35, script browser suite 14/14, desk browser suite 21/21 (local, disposable Postgres; see `security-review/test/README.md`).
 - Rollback: `RITNOME_LIVE_ENABLED=false` disables the whole institutional service; the reporting tables keep their data (never dropped).
 
-## 14-day free trial (owner-approved 2026-11-28, pending "ok to push")
+## 14-day free trial (released 2026-11-28 09:29 UTC)
 - Checkout adds `trial_period_days: 14` with a card required; if the card is missing at trial end Stripe cancels. Price, tax and portal settings are unchanged.
 - Entitlement: a verified first trial (`trialing`, ≤14 days, no prior paid period) grants access until `trial_end`; the SQL commit allows that one non-active extension only (from NULL, ≤15 days ahead). Nothing else about the paid rules changed. Migration: `security-review/ritnome-trial.sql`.
 - Owner step in the Stripe dashboard (not code): Settings → Billing → Subscriptions and emails → turn on the reminder email before a trial ends.
@@ -65,7 +65,13 @@ Enrollment is by invitation; the browser can never pick a price, customer or fac
 - All 15 activities verified by the activity gate (106 checks) and marked available in the library. Game sites merged to main: ritnome-bpm (auto-deploy), reaction-velocity = vreaction-velocity on GitHub (same repo, auto-deploy), fortress-mobi (manual deploy).
 - Institutional mode on the game sites is entered only by the launch code in the URL fragment; athlete/school use is unchanged.
 
-## Phase 5 — participant handles at the station (pending "ok to push")
+## Phase 5 — participant handles at the station (released 2026-11-28 09:54 UTC)
 - When a facility has handles on, the station asks "who is at this station" after the headcount (labels only, six characters derived from the id; no names anywhere) and the banner lets the facilitator switch participant. Each finished game adds a progress row for that handle (setting, personal BPM or level, result). Facility totals are unchanged.
 - Desk: handles show the same labels; Individual Progress lists runs, minutes, activities, personal BPM over time, and per activity + setting the first sessions (baseline) and the latest.
 - Migration: `security-review/ritnome-phase5.sql` (one read-only function for the station's handle list). Release: apply, deploy the service, deploy the three game sites (glue sends progress).
+
+## Phase 6 — public pages (released 2026-11-28)
+- ritnome.com/library.html: the 16 activities by category with descriptions and badges; ritnome.com/institutional.html: areas, reporting levels, price, trial, enrollment steps. Static site, auto-deploy from main.
+
+## Status after the six phases
+All six approved phases are live. Operating notes: the activity gate (`ritnome-activities.browser.test.js`) is the rule for any new activity — it is marked `available:true` in `ritnome-activity-catalog.js` only after its block passes. Invitations remain the entry point (`## Inviting a facility`); a facility's first entitlement is the 14-day trial.
